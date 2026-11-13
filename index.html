@@ -1,0 +1,1530 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Parco auto: manutenzioni e costi</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Parco auto">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EDF0F2; --surface:#FFFFFF; --ink:#16222E; --muted:#586775; --line:#D3DAE0; --soft:#E4EAEE;
+  --accent:#0E6F78; --on-accent:#FFFFFF;
+  --fuel:#C98408; --service:#245E8F; --quote:#6A58A8; --todo:#B5382B;
+  --warn:#A8620A; --bad:#B5382B; --ok:#2E7D4F; --plate-blue:#1D4FA3;
+  --shadow:0 1px 2px rgba(22,34,46,.06);
+  color-scheme: light;
+  box-sizing:border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F161C; --surface:#18232C; --ink:#E6ECF1; --muted:#9AA9B6; --line:#2B3946; --soft:#223140;
+    --accent:#4DB4BD; --on-accent:#08181A;
+    --fuel:#E8A93A; --service:#6BA6DB; --quote:#A596DE; --todo:#EE7B6E;
+    --warn:#E8A93A; --bad:#EE7B6E; --ok:#6CC28D; --plate-blue:#3E73CF;
+    --shadow:none; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F161C; --surface:#18232C; --ink:#E6ECF1; --muted:#9AA9B6; --line:#2B3946; --soft:#223140;
+  --accent:#4DB4BD; --on-accent:#08181A;
+  --fuel:#E8A93A; --service:#6BA6DB; --quote:#A596DE; --todo:#EE7B6E;
+  --warn:#E8A93A; --bad:#EE7B6E; --ok:#6CC28D; --plate-blue:#3E73CF;
+  --shadow:none; color-scheme: dark;
+}
+html{ scroll-padding-top: env(safe-area-inset-top, 0px); -webkit-text-size-adjust:100%; }
+html.locked, html.locked body{ overflow:hidden; }
+*,*::before,*::after{ box-sizing:border-box; }
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:'Barlow', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size:16px; line-height:1.4; padding-bottom:96px;
+}
+button,input,select,textarea{ font:inherit; color:inherit; }
+h1,h2,h3{ font-family:'Barlow Condensed','Arial Narrow',system-ui,sans-serif; margin:0; font-weight:600; letter-spacing:.01em; }
+.wrap{ max-width:980px; margin:0 auto; padding:18px 16px 0; }
+
+/* header */
+.top{ display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin-bottom:14px; }
+.top h1{ font-size:34px; line-height:1; font-weight:700; }
+.top p{ margin:4px 0 0; color:var(--muted); font-size:14px; }
+
+/* buttons */
+.btn{
+  appearance:none; border:1px solid var(--line); background:var(--surface); color:var(--ink);
+  border-radius:8px; padding:10px 16px; font-weight:600; cursor:pointer; min-height:44px;
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+}
+.btn:hover{ border-color:var(--muted); }
+.btn.primary{ background:var(--accent); border-color:var(--accent); color:var(--on-accent); }
+.btn.primary:hover{ filter:brightness(1.08); }
+.btn.danger{ color:var(--bad); }
+.btn.danger.armed{ background:var(--bad); color:#fff; border-color:var(--bad); }
+.btn.small{ min-height:36px; padding:6px 12px; font-size:14px; }
+.btn[disabled]{ opacity:.5; cursor:default; }
+:focus-visible{ outline:3px solid var(--accent); outline-offset:2px; }
+.icon-btn{ appearance:none; border:0; background:transparent; font-size:28px; line-height:1; width:44px; height:44px; cursor:pointer; border-radius:8px; color:var(--muted); }
+.icon-btn:hover{ background:var(--soft); }
+
+/* navigation */
+.tabs{
+  position:fixed; left:0; right:0; bottom:0; z-index:20; display:flex;
+  background:var(--surface); border-top:1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.tabs button{
+  flex:1; appearance:none; border:0; background:transparent; cursor:pointer; padding:12px 4px 11px;
+  font-weight:600; font-size:14px; color:var(--muted); border-top:3px solid transparent; position:relative;
+}
+.tabs button[aria-current="page"]{ color:var(--ink); border-top-color:var(--accent); }
+.tabs .badge{ position:absolute; top:6px; margin-left:4px; min-width:18px; height:18px; padding:0 5px; border-radius:9px; background:var(--bad); color:#fff; font-size:11px; line-height:18px; }
+@media (min-width:760px){
+  body{ padding-bottom:40px; }
+  .tabs{ position:static; border:0; background:transparent; padding:0; margin-bottom:16px; border-bottom:1px solid var(--line); gap:4px; }
+  .tabs button{ flex:0 0 auto; padding:10px 18px; font-size:16px; border-top:0; border-bottom:3px solid transparent; margin-bottom:-1px; }
+  .tabs button[aria-current="page"]{ border-bottom-color:var(--accent); }
+}
+
+/* cards */
+.card{ background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:16px; box-shadow:var(--shadow); margin-bottom:14px; }
+.card h2{ font-size:22px; margin-bottom:10px; }
+.muted{ color:var(--muted); }
+.small{ font-size:14px; }
+.notice{ border:1px solid var(--line); background:var(--soft); border-radius:8px; padding:10px 12px; font-size:14px; color:var(--muted); margin-bottom:14px; }
+.empty{ text-align:center; padding:34px 18px; }
+.empty h2{ font-size:26px; }
+.empty p{ max-width:46ch; margin:8px auto 16px; color:var(--muted); }
+
+/* plate */
+.plate{ display:inline-flex; align-items:stretch; border:2px solid #16222E; border-radius:5px; background:#fff; color:#16222E; overflow:hidden; vertical-align:middle; line-height:1; }
+.plate i{ background:var(--plate-blue); color:#fff; font-style:normal; font-size:10px; font-weight:700; padding:0 5px; display:flex; align-items:center; font-family:'Barlow',sans-serif; }
+.plate b{ font-family:'Barlow Condensed',sans-serif; font-weight:700; letter-spacing:.09em; font-size:20px; padding:4px 9px 3px; }
+.plate.sm b{ font-size:15px; padding:3px 7px 2px; letter-spacing:.07em; }
+.plate.sm i{ font-size:8px; padding:0 4px; }
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .plate{ border-color:#cfd8df; } }
+:root[data-theme="dark"] .plate{ border-color:#cfd8df; }
+
+/* filters */
+.filters{ display:flex; flex-wrap:wrap; gap:10px; margin-bottom:14px; align-items:center; }
+select,input[type=text],input[type=password],input[type=date],input[type=search],textarea{
+  width:100%; border:1px solid var(--line); background:var(--surface); border-radius:8px; padding:10px 12px; min-height:44px;
+}
+textarea{ min-height:76px; resize:vertical; }
+.filters select,.filters input{ width:auto; min-width:150px; flex:1 1 150px; }
+.chips{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+.chip{ appearance:none; border:1px solid var(--line); background:var(--surface); border-radius:20px; padding:7px 14px; cursor:pointer; font-weight:500; font-size:14px; min-height:36px; }
+.chip[aria-pressed="true"]{ background:var(--ink); color:var(--bg); border-color:var(--ink); }
+
+/* kpis */
+.kpis{ display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-bottom:14px; }
+@media (min-width:640px){ .kpis{ grid-template-columns:repeat(4,1fr); } }
+.kpi{ background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:12px 14px; box-shadow:var(--shadow); }
+.kpi .v{ font-family:'Barlow Condensed',sans-serif; font-size:32px; font-weight:700; line-height:1.05; font-variant-numeric:tabular-nums; }
+.kpi .l{ color:var(--muted); font-size:14px; margin-top:2px; }
+.kpi.main{ border-left:5px solid var(--accent); }
+.kpi.f{ border-left:5px solid var(--fuel); }
+.kpi.s{ border-left:5px solid var(--service); }
+
+/* chart */
+.chart-wrap{ overflow-x:auto; }
+.chart{ width:100%; min-width:520px; height:auto; display:block; }
+.chart text{ fill:var(--muted); font-size:11px; font-family:'Barlow',sans-serif; }
+.chart .grid{ stroke:var(--line); stroke-width:1; }
+.chart .bf{ fill:var(--fuel); } .chart .bs{ fill:var(--service); }
+.chart .sel{ fill:var(--soft); }
+.chart .hit{ fill:transparent; cursor:pointer; }
+.legend{ display:flex; gap:16px; flex-wrap:wrap; font-size:14px; color:var(--muted); margin-top:6px; }
+.legend span::before{ content:''; display:inline-block; width:12px; height:12px; border-radius:3px; margin-right:6px; vertical-align:-1px; background:var(--c); }
+.readout{ margin-top:10px; padding:10px 12px; background:var(--soft); border-radius:8px; font-size:15px; display:flex; flex-wrap:wrap; gap:6px 18px; }
+.readout b{ font-family:'Barlow Condensed',sans-serif; font-size:18px; font-variant-numeric:tabular-nums; }
+
+/* table */
+.tbl-wrap{ overflow-x:auto; }
+table{ width:100%; border-collapse:collapse; min-width:560px; font-variant-numeric:tabular-nums; }
+th,td{ text-align:right; padding:10px 8px; border-bottom:1px solid var(--line); font-size:15px; }
+th:first-child,td:first-child{ text-align:left; }
+th{ font-weight:600; color:var(--muted); font-size:14px; }
+tfoot td{ font-weight:600; border-bottom:0; }
+td small{ display:block; color:var(--muted); font-size:13px; }
+
+/* list rows */
+.month-h{ display:flex; justify-content:space-between; align-items:baseline; margin:18px 2px 8px; }
+.month-h h3{ font-size:20px; text-transform:capitalize; }
+.month-h span{ color:var(--muted); font-size:14px; }
+.row{
+  display:flex; gap:12px; align-items:center; background:var(--surface); border:1px solid var(--line); border-left:5px solid var(--c, var(--line));
+  border-radius:8px; padding:11px 12px; margin-bottom:8px; cursor:pointer; text-align:left; width:100%; box-shadow:var(--shadow);
+}
+.row:hover{ border-color:var(--muted); border-left-color:var(--c); }
+.row .main{ flex:1; min-width:0; }
+.row .t1{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.row .kind{ font-weight:600; font-size:14px; color:var(--c); }
+.row .title{ font-weight:500; margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.row .meta{ display:flex; flex-wrap:wrap; gap:2px 12px; font-size:13.5px; color:var(--muted); margin-top:2px; }
+.row .amt{ font-family:'Barlow Condensed',sans-serif; font-size:22px; font-weight:700; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.row .thumb{ width:42px; height:42px; border-radius:6px; object-fit:cover; border:1px solid var(--line); flex:none; background:var(--soft); }
+.row .acts{ display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
+.k-fuel{ --c:var(--fuel); } .k-service{ --c:var(--service); } .k-quote{ --c:var(--quote); } .k-todo{ --c:var(--todo); }
+.st{ font-size:13px; font-weight:600; padding:1px 8px; border-radius:10px; background:var(--soft); }
+.st.ok{ color:var(--ok); } .st.warn{ color:var(--warn); } .st.bad{ color:var(--bad); }
+
+/* alerts */
+.alert{ display:flex; justify-content:space-between; gap:10px; padding:10px 0; border-bottom:1px solid var(--line); align-items:center; }
+.alert:last-child{ border-bottom:0; }
+.alert .when{ font-weight:600; font-size:14px; white-space:nowrap; }
+.alert .when.bad{ color:var(--bad); } .alert .when.warn{ color:var(--warn); } .alert .when.ok{ color:var(--ok); }
+.alert .what{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+
+/* vehicles */
+.vgrid{ display:grid; gap:12px; grid-template-columns:1fr; }
+@media (min-width:700px){ .vgrid{ grid-template-columns:1fr 1fr; } }
+.vcard{ background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:14px; cursor:pointer; box-shadow:var(--shadow); }
+.vcard:hover{ border-color:var(--muted); }
+.vcard h3{ font-size:22px; margin:10px 0 2px; }
+.vcard dl{ margin:10px 0 0; display:grid; grid-template-columns:auto 1fr; gap:4px 12px; font-size:14px; }
+.vcard dt{ color:var(--muted); } .vcard dd{ margin:0; text-align:right; font-weight:500; }
+
+/* sheet */
+.scrim{ position:fixed; inset:0; background:rgba(8,16,24,.55); z-index:40; }
+.sheet{
+  position:fixed; z-index:41; left:0; right:0; bottom:0; max-height:94vh; max-height:94dvh; display:flex; flex-direction:column;
+  background:var(--bg); border-radius:16px 16px 0 0; box-shadow:0 -8px 30px rgba(0,0,0,.25);
+}
+.sheet-h{ display:flex; align-items:center; justify-content:space-between; padding:6px 8px 6px 18px; border-bottom:1px solid var(--line); }
+.sheet-h h2{ font-size:24px; }
+.sheet-b{ overflow-y:auto; padding:16px 16px calc(16px + env(safe-area-inset-bottom, 0px)); -webkit-overflow-scrolling:touch; }
+@media (min-width:760px){
+  .sheet{ left:50%; right:auto; bottom:auto; top:50%; transform:translate(-50%,-50%); width:640px; max-height:90vh; border-radius:14px; }
+}
+.fgrid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.fgrid .full{ grid-column:1 / -1; }
+@media (max-width:340px){ .fgrid{ grid-template-columns:1fr; } }
+label.f{ display:block; font-size:14px; font-weight:500; }
+label.f > span{ display:block; margin-bottom:4px; color:var(--muted); }
+label.f small{ display:block; color:var(--muted); margin-top:3px; font-size:12.5px; }
+.filled{ animation:flash 1.6s ease-out; }
+@keyframes flash{ from{ background:color-mix(in srgb, var(--accent) 28%, transparent); } to{ background:var(--surface); } }
+.actions{ display:flex; gap:8px; margin-top:18px; flex-wrap:wrap; }
+.actions .spacer{ flex:1; }
+.err{ color:var(--bad); font-size:14px; margin-top:10px; min-height:1em; }
+
+/* attachments */
+.att{ border:1px dashed var(--muted); border-radius:10px; padding:12px; background:var(--surface); margin-bottom:14px; }
+.att h3{ font-size:18px; margin-bottom:8px; }
+.att .btns{ display:flex; gap:8px; flex-wrap:wrap; }
+.thumbs{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+.th{ position:relative; width:76px; height:76px; border-radius:8px; border:1px solid var(--line); overflow:hidden; background:var(--soft); cursor:pointer; padding:0; }
+.th img{ width:100%; height:100%; object-fit:cover; display:block; }
+.th .pdf{ display:flex; width:100%; height:100%; align-items:center; justify-content:center; font-weight:700; font-family:'Barlow Condensed',sans-serif; font-size:20px; }
+.th .x{ position:absolute; top:2px; right:2px; width:26px; height:26px; border-radius:13px; border:0; background:rgba(0,0,0,.65); color:#fff; font-size:16px; line-height:26px; cursor:pointer; padding:0; }
+.hint{ font-size:13px; color:var(--muted); margin-top:8px; }
+
+/* add menu */
+.menu{ display:grid; gap:10px; }
+.menu button{ display:block; text-align:left; border:1px solid var(--line); border-left:6px solid var(--c); background:var(--surface); border-radius:8px; padding:14px; cursor:pointer; }
+.menu button:hover{ border-color:var(--muted); border-left-color:var(--c); }
+.menu b{ display:block; font-family:'Barlow Condensed',sans-serif; font-size:21px; font-weight:600; }
+.menu span{ color:var(--muted); font-size:14px; }
+
+/* viewer + toast */
+.viewer{ position:fixed; inset:0; z-index:60; background:rgba(5,10,15,.92); display:flex; align-items:center; justify-content:center; padding:16px; flex-direction:column; gap:12px; }
+.viewer img{ max-width:100%; max-height:82vh; object-fit:contain; border-radius:6px; background:#fff; }
+.viewer .bar{ display:flex; gap:8px; }
+.viewer .btn{ background:#fff; color:#16222E; }
+#toast{ position:fixed; left:50%; bottom:calc(88px + env(safe-area-inset-bottom, 0px)); transform:translateX(-50%); z-index:70; background:var(--ink); color:var(--bg); padding:10px 16px; border-radius:8px; font-size:15px; max-width:90vw; opacity:0; pointer-events:none; transition:opacity .2s; }
+#toast.on{ opacity:1; }
+@media (min-width:760px){ #toast{ bottom:30px; } }
+.prow{ display:grid; grid-template-columns:1fr 84px 84px 44px; gap:6px; align-items:center; margin-bottom:6px; }
+.prow.ph{ font-size:13px; color:var(--muted); margin-bottom:2px; }
+.prow input{ min-width:0; padding:8px 10px; min-height:40px; }
+@media (prefers-reduced-motion: reduce){ .filled{ animation:none; } #toast{ transition:none; } }
+/* ---- aiuto se la pagina non parte ---- */
+.loadhint{ visibility:hidden; margin-top:18px; padding:12px 14px; border:1px solid var(--line); border-radius:8px; background:var(--soft); font-size:14px; animation:lh .01s linear 4s forwards; }
+.loadhint p{ margin:0; }
+@keyframes lh{ to{ visibility:visible; } }
+/* ---- blocco PIN e menu dati ---- */
+.top-actions{ display:flex; gap:8px; align-items:center; }
+.lock{ position:fixed; inset:0; z-index:100; background:var(--bg); display:flex; align-items:center; justify-content:center; padding:20px; }
+.lockbox{ width:min(340px,100%); display:grid; gap:12px; text-align:center; }
+.lockbox input{ text-align:center; letter-spacing:.4em; font-size:22px; }
+/* ---- primo avvio utente ---- */
+.onboard .tabs, .onboard .fab, .onboard .top .btn{ display:none !important; }
+/* ---- campo data con calendario ---- */
+.dwrap{ position:relative; }
+.dwrap .dtxt{ padding-right:50px; }
+.dwrap .dico{ position:absolute; right:0; top:0; bottom:0; width:46px; display:flex; align-items:center; justify-content:center; pointer-events:none; color:var(--muted); }
+.dwrap .dnat{ position:absolute; right:0; top:0; width:46px; height:100%; min-height:0; padding:0; border:0; opacity:0; cursor:pointer; }
+/* ---- scambio aggiornamenti ---- */
+.sync{ display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; }
+.sync-t b{ font-family:'Barlow Condensed',sans-serif; font-size:30px; font-weight:700; margin-right:4px; }
+.sync-b{ display:flex; gap:8px; flex-wrap:wrap; }
+.dropzone{ position:fixed; inset:0; z-index:80; background:rgba(14,111,120,.94); color:#fff; display:flex; align-items:center; justify-content:center; text-align:center; padding:24px; font-family:'Barlow Condensed',sans-serif; font-size:34px; font-weight:600; border:4px dashed #fff; }
+.dropzone[hidden]{ display:none; }
+/* ---- ottimizzazione iPhone ---- */
+html{ -webkit-tap-highlight-color:transparent; }
+button,select,input,[role=button]{ touch-action:manipulation; }
+input,select,textarea{ font-size:16px; }
+input[type=date]{ -webkit-appearance:none; appearance:none; text-align:left; min-height:44px; }
+.wrap{ padding-left:max(16px, env(safe-area-inset-left, 0px)); padding-right:max(16px, env(safe-area-inset-right, 0px)); }
+.sheet-b{ padding-bottom:0; overscroll-behavior:contain; }
+.actions{ position:sticky; bottom:0; z-index:2; background:var(--bg); margin:14px -16px 0; padding:12px 16px calc(12px + env(safe-area-inset-bottom, 0px)); border-top:1px solid var(--line); }
+.menu{ padding-bottom:calc(16px + env(safe-area-inset-bottom, 0px)); }
+.viewer img{ max-height:80dvh; }
+.fab{ position:fixed; right:max(16px, env(safe-area-inset-right, 0px)); bottom:calc(62px + env(safe-area-inset-bottom, 0px)); z-index:25; min-height:52px; padding:0 22px; border-radius:26px; font-size:17px; box-shadow:0 4px 14px rgba(0,0,0,.3); }
+@media (min-width:760px){ .fab{ display:none; } }
+@media (max-width:759px){
+  .top .btn.primary{ display:none; }
+  .top h1{ font-size:30px; }
+  .top p{ font-size:13px; }
+  body{ padding-bottom:150px; }
+  #toast{ bottom:calc(128px + env(safe-area-inset-bottom, 0px)); }
+  .chip{ min-height:40px; }
+  .btn.small{ min-height:40px; }
+  .card{ padding:14px; }
+  .kpi .v{ font-size:30px; }
+}
+@media (max-width:600px){
+  .chart{ min-width:0; }
+  table{ min-width:0; }
+  thead{ display:none; }
+  table, tbody, tfoot, tr, td{ display:block; }
+  tr{ border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin-bottom:8px; }
+  td{ display:flex; justify-content:space-between; align-items:baseline; border:0; padding:3px 0; text-align:right; }
+  td::before{ content:attr(data-label); color:var(--muted); font-size:14px; }
+  td:first-child{ display:block; text-align:left; padding-bottom:6px; }
+  td:first-child::before{ content:none; }
+  td:empty{ display:none; }
+  tfoot tr{ background:var(--soft); border-color:transparent; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Parco auto</h1>
+      <p id="sub">Manutenzioni, rifornimenti e costi</p>
+    </div>
+    <div class="top-actions"><button class="btn small" data-action="data-menu">Dati</button><button class="btn primary" data-action="add-menu">+ Aggiungi</button></div>
+  </header>
+  <nav class="tabs" id="tabs" aria-label="Sezioni"></nav>
+  <div id="notice"></div>
+  <main id="app"><p class="muted">Caricamento…</p>
+<div class="loadhint"><p><b>La pagina non si avvia?</b> Questo file va aperto da un indirizzo web (https) con Safari. Se lo apri dall’anteprima di Mail, File o WhatsApp, o lo scarichi e lo tocchi, l’anteprima non esegue il programma e resta ferma qui. Pubblicalo su un sito (per esempio Netlify o GitHub Pages) e apri quell’indirizzo.</p></div>
+<noscript><p>Serve JavaScript attivo nel browser.</p></noscript></main>
+</div>
+<div id="sheet-root"></div>
+<div id="viewer-root"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<button class="btn primary fab" data-action="add-menu" aria-label="Aggiungi una registrazione">+ Aggiungi</button>
+<div id="dropzone" class="dropzone" hidden>Rilascia qui la mail o il file dell’aggiornamento</div>
+<input type="file" id="impfile" accept=".json,.eml,application/json,message/rfc822" hidden>
+<input type="file" id="restorefile" accept=".json,application/json" hidden>
+
+<script>
+(function(){
+  function show(msg){ try{ var a=document.getElementById('app'); if(!a || window.__parcoReady) return; var p=document.createElement('pre'); p.style.cssText='white-space:pre-wrap;font-size:12px;color:#B5382B;margin:12px 0'; p.textContent='Errore: '+msg; a.appendChild(p); }catch(x){} }
+  window.addEventListener('error', function(e){ show((e.message||'')+' (riga '+(e.lineno||'?')+')'); });
+  window.addEventListener('unhandledrejection', function(e){ show(String((e.reason&&e.reason.message)||e.reason||'')); });
+})();
+</script>
+<script>
+(function(){
+'use strict';
+
+/* ---------- utilità ---------- */
+const $ = (s, el=document) => el.querySelector(s);
+const $$ = (s, el=document) => Array.from(el.querySelectorAll(s));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad = n => String(n).padStart(2,'0');
+const todayStr = () => { const d = new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); };
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const eur = n => new Intl.NumberFormat('it-IT',{style:'currency',currency:'EUR'}).format(n||0);
+const eur0 = n => new Intl.NumberFormat('it-IT',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n||0);
+const nf = (n,d=1) => new Intl.NumberFormat('it-IT',{maximumFractionDigits:d}).format(n);
+const fmtDate = iso => iso ? iso.slice(8,10)+'/'+iso.slice(5,7)+'/'+iso.slice(0,4) : '';
+const MONTHS = ['gennaio','febbraio','marzo','aprile','maggio','giugno','luglio','agosto','settembre','ottobre','novembre','dicembre'];
+const MONTHS_S = ['gen','feb','mar','apr','mag','giu','lug','ago','set','ott','nov','dic'];
+function parseNum(s){
+  if(s==null) return null; s = String(s).trim().replace(/[€\s]/g,''); if(!s) return null;
+  if(s.includes(',')) s = s.replace(/\./g,'').replace(',','.');
+  const n = parseFloat(s); return isFinite(n) ? n : null;
+}
+const parseKm = s => { const d = String(s||'').replace(/\D/g,''); return d ? parseInt(d,10) : null; };
+const daysTo = iso => { const a = new Date(iso+'T12:00:00'); const b = new Date(); b.setHours(12,0,0,0); return Math.round((a-b)/864e5); };
+const clean = o => JSON.parse(JSON.stringify(o));
+const withTimeout = (p, ms) => Promise.race([ p, new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')), ms)) ]);
+let toastT;
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('on'),3200); }
+const plateHTML = (p, sm) => `<span class="plate${sm?' sm':''}"><i>I</i><b>${esc((p||'—').toUpperCase())}</b></span>`;
+
+/* ---------- stato e archiviazione ---------- */
+const state = { vehicles:[], records:[], ready:false };
+const Store = { mode:'local', canWrite:true, dl:null };
+/* Ruoli: l’amministratore vede tutte le auto e importa gli aggiornamenti; l’utente, dopo aver impostato la propria auto, vede solo quella. */
+const isAdmin = () => Meta.role==='admin';
+const V = () => (!isAdmin() && Meta.myVehicle) ? state.vehicles.filter(v=>v.id===Meta.myVehicle) : state.vehicles;
+const R = () => (!isAdmin() && Meta.myVehicle) ? state.records.filter(r=>r.vehicleId===Meta.myVehicle) : state.records;
+const ui = { tab:'costi', year:String(new Date().getFullYear()), vehicle:'', month:null, regKind:'all', regVehicle:'', regQuery:'', lastVehicle:'' };
+
+const IDB = {
+  mem:{}, broken:false,
+  open(){ return new Promise((res,rej)=>{ try{ const q=indexedDB.open('parco-auto',1); q.onupgradeneeded=()=>q.result.createObjectStore('kv'); q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error); q.onblocked=()=>rej(new Error('blocked')); }catch(e){ rej(e); } }); },
+  async db(){
+    if(this.broken) return null;
+    try{ return await withTimeout(this.open(),1500); }catch(e){ this.broken=true; return null; }
+  },
+  async get(k){
+    const d = await this.db();
+    if(d){ try{ return await withTimeout(new Promise((res,rej)=>{ const r=d.transaction('kv').objectStore('kv').get(k); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }),2500); }catch(e){} }
+    try{ const t=localStorage.getItem('parco-'+k); if(t) return JSON.parse(t); }catch(e2){}
+    return this.mem[k];
+  },
+  async set(k,v){
+    this.mem[k]=v;
+    const d = await this.db();
+    if(d){ try{ await withTimeout(new Promise((res,rej)=>{ const t=d.transaction('kv','readwrite'); t.objectStore('kv').put(v,k); t.oncomplete=res; t.onerror=()=>rej(t.error); t.onabort=()=>rej(t.error); }),6000); return true; }catch(e){} }
+    try{ localStorage.setItem('parco-'+k, JSON.stringify(v)); return true; }catch(e2){ return false; }
+  }
+};
+const persistLocal = async () => {
+  const ok = await IDB.set('state', { vehicles:state.vehicles, records:state.records });
+  if(!ok) toast('Non riesco a salvare su questo dispositivo: scarica subito una copia dal menu Dati');
+  return ok;
+};
+async function put(coll, obj, opts={}){
+  const o = clean(obj);
+  if(!opts.keep) o.updatedAt = Date.now();
+  const arr = state[coll]; const i = arr.findIndex(x=>x.id===o.id);
+  if(i>=0) arr[i]=o; else arr.push(o);
+  if(opts.batch) return;
+  await persistLocal(); render();
+}
+async function del(coll, id){
+  state[coll] = state[coll].filter(x=>x.id!==id);
+  await persistLocal(); render();
+}
+
+/* ---------- allegati ---------- */
+async function loadBitmap(file){
+  if(window.createImageBitmap){ try{ return await createImageBitmap(file,{imageOrientation:'from-image'}); }catch(e){} }
+  return await new Promise((res,rej)=>{ const u=URL.createObjectURL(file); const i=new Image(); i.onload=()=>res(i); i.onerror=()=>rej(new Error('Immagine non leggibile')); i.src=u; });
+}
+async function toJpeg(file, maxDim, q){
+  const bm = await loadBitmap(file);
+  const w0 = bm.width||bm.naturalWidth, h0 = bm.height||bm.naturalHeight;
+  const s = Math.min(1, maxDim/Math.max(w0,h0));
+  const c = document.createElement('canvas'); c.width=Math.round(w0*s); c.height=Math.round(h0*s);
+  const ctx = c.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,c.width,c.height); ctx.drawImage(bm,0,0,c.width,c.height);
+  return await new Promise(r=>c.toBlob(r,'image/jpeg',q));
+}
+const toDataURL = blob => new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=()=>rej(new Error('Lettura file non riuscita')); r.readAsDataURL(blob); });
+
+async function processFile(file){
+  const isImg = (file.type||'').startsWith('image/');
+  const isPdf = file.type==='application/pdf' || /\.pdf$/i.test(file.name||'');
+  if(!isImg && !isPdf) throw new Error('Formato non supportato: usa foto o PDF');
+  let blob;
+  if(isImg){ blob = await toJpeg(file,1600,.72); if(!blob) throw new Error('Immagine non elaborabile'); }
+  else { if(file.size>8e6) throw new Error('PDF troppo grande (massimo 8 MB)'); blob = file; }
+  const name = (file.name||'scansione').replace(/\.[^.]+$/,'') + (isImg?'.jpg':'.pdf');
+  return { name, type: isImg?'image/jpeg':'application/pdf', url: await toDataURL(blob), blob };
+}
+const fileKeep = f => ({name:f.name, type:f.type, url:f.url, ...(f.assetId?{assetId:f.assetId}:{})});
+
+/* ---------- viewer allegati ---------- */
+function openViewer(f){
+  const root = $('#viewer-root');
+  const isImg = (f.type||'').startsWith('image/');
+  let linkHref = f.url;
+  if(!isImg && f.url.startsWith('data:')){
+    try{ const bin=atob(f.url.split(',')[1]); const arr=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i); linkHref = URL.createObjectURL(new Blob([arr],{type:'application/pdf'})); }catch(e){}
+  }
+  root.innerHTML = `<div class="viewer" data-action="close-viewer">
+    ${isImg ? `<img src="${esc(f.url)}" alt="${esc(f.name)}">` : `<div class="card" style="text-align:center"><h2>${esc(f.name)}</h2><p class="muted">Documento PDF</p></div>`}
+    <div class="bar"><a class="btn" href="${esc(linkHref)}" target="_blank" rel="noopener">Apri originale</a><button class="btn" data-action="close-viewer">Chiudi</button></div>
+  </div>`;
+}
+const closeViewer = () => { $('#viewer-root').innerHTML=''; };
+
+/* ---------- calcoli ---------- */
+const isCost = r => r.kind==='fuel' || r.kind==='service';
+const vById = id => state.vehicles.find(v=>v.id===id);
+const vLabel = id => { const v=vById(id); return v ? v.plate : 'Veicolo eliminato'; };
+function yearsAvailable(){
+  const s = new Set([String(new Date().getFullYear())]);
+  R().forEach(r=>{ if(r.date) s.add(r.date.slice(0,4)); });
+  return Array.from(s).sort().reverse();
+}
+function costRecs(year, vid){ return R().filter(r=>isCost(r) && r.date && r.date.startsWith(year) && (!vid || r.vehicleId===vid)); }
+function monthly(recs){
+  const fuel=Array(12).fill(0), serv=Array(12).fill(0);
+  recs.forEach(r=>{ const m=parseInt(r.date.slice(5,7),10)-1; if(m<0||m>11) return; (r.kind==='fuel'?fuel:serv)[m]+= (r.amount||0); });
+  return {fuel,serv};
+}
+function vehicleStats(v, year){
+  const recs = costRecs(year, v.id);
+  const fuelCost = recs.filter(r=>r.kind==='fuel').reduce((a,r)=>a+(r.amount||0),0);
+  const servCost = recs.filter(r=>r.kind==='service').reduce((a,r)=>a+(r.amount||0),0);
+  const fills = recs.filter(r=>r.kind==='fuel' && r.km && r.liters).sort((a,b)=>a.km-b.km);
+  let l100=null;
+  if(fills.length>=2){ const dist=fills[fills.length-1].km-fills[0].km; const lit=fills.slice(1).reduce((a,r)=>a+r.liters,0); if(dist>0) l100=lit/dist*100; }
+  const kms = recs.filter(r=>r.km).map(r=>r.km); let perKm=null;
+  if(kms.length>=2){ const dist=Math.max(...kms)-Math.min(...kms); if(dist>0) perKm=(fuelCost+servCost)/dist; }
+  return {fuelCost, servCost, total:fuelCost+servCost, l100, perKm};
+}
+const DEADLINES = [['revisione','Revisione'],['bollo','Bollo'],['assicurazione','Assicurazione'],['tagliandoData','Tagliando']];
+function allAlerts(){
+  const out=[];
+  V().forEach(v=>{
+    DEADLINES.forEach(([k,label])=>{
+      if(v[k]){ const d=daysTo(v[k]); if(d<=30) out.push({days:d, vid:v.id, text:label, kind:'veh', vehId:v.id}); }
+    });
+    if(v.tagliandoKm && v.km && v.km >= v.tagliandoKm-1500){
+      const left=v.tagliandoKm-v.km;
+      out.push({days: left<=0?-1:15, vid:v.id, text: left<=0?`Tagliando oltre i ${nf(v.tagliandoKm,0)} km`:`Tagliando tra ${nf(left,0)} km`, kind:'veh', km:true, vehId:v.id});
+    }
+    (v.plan||[]).forEach(p=>{
+      if(!p.everyKm || p.lastKm==null || !v.km) return;
+      const left = (p.lastKm+p.everyKm) - v.km;
+      if(left<=1500) out.push({days: left<=0?-1:15, vid:v.id, text: left<=0?`${p.name}: superato di ${nf(-left,0)} km`:`${p.name} tra ${nf(left,0)} km`, kind:'veh', km:true, vehId:v.id});
+    });
+  });
+  R().filter(r=>r.kind==='todo' && r.dueDate).forEach(r=>{ const d=daysTo(r.dueDate); if(d<=30) out.push({days:d, vid:r.vehicleId, text:(r.desc||r.category||'Lavoro da fare'), kind:'todo', rid:r.id}); });
+  return out.sort((a,b)=>a.days-b.days);
+}
+function whenText(a){
+  if(a.km) return a.days<0 ? 'oltre il limite' : 'in arrivo';
+  const d=a.days;
+  if(d<0) return `scaduta da ${-d} ${-d===1?'giorno':'giorni'}`;
+  if(d===0) return 'scade oggi';
+  return `tra ${d} ${d===1?'giorno':'giorni'}`;
+}
+const sev = d => d<0 ? 'bad' : d<=14 ? 'warn' : 'ok';
+
+/* ---------- viste ---------- */
+const TABS = [['costi','Costi'],['registro','Registro'],['dafare','Da fare'],['veicoli','Veicoli']];
+function renderTabs(){
+  const n = allAlerts().filter(a=>a.days<0).length + R().filter(r=>r.kind==='todo' && !r.dueDate).length;
+  $('#tabs').innerHTML = TABS.map(([k,l])=>`<button data-action="tab" data-tab="${k}" ${ui.tab===k?'aria-current="page"':''}>${l}${k==='dafare' && n?`<span class="badge">${n}</span>`:''}</button>`).join('');
+}
+function render(){
+  if(!state.ready) return;
+  const y = $('#app').scrollTop; 
+  renderTabs();
+  const needRole = !Meta.role;
+  const onboard = needRole || (!isAdmin() && !Meta.myVehicle);
+  document.body.classList.toggle('onboard', onboard);
+  const n = V().length;
+  const mine = (!isAdmin() && Meta.myVehicle) ? vById(Meta.myVehicle) : null;
+  $('#sub').textContent = mine ? `La tua auto: ${mine.plate}` : (n ? `${n} ${n===1?'veicolo':'veicoli'} nel parco` : 'Manutenzioni, rifornimenti e costi');
+  let note='';
+  const needBackup = state.records.length>0 && (!Meta.lastBackup || Date.now()-Meta.lastBackup > 30*864e5);
+  if(needBackup) note = `<div class="notice">I dati sono salvati solo su questo dispositivo. Dal menu <b>Dati</b> puoi scaricare una copia di sicurezza${Meta.lastBackup?'':': non ne hai ancora fatta una'}.</div>`;
+  $('#notice').innerHTML = note;
+  const app = $('#app');
+  if(needRole){ app.innerHTML = roleHTML(); return; }
+  if(onboard){ app.innerHTML = onboardingHTML(); return; }
+  if(!V().length && ui.tab!=='veicoli'){
+    app.innerHTML = `<div class="card empty"><h2>Inizia dal primo veicolo</h2><p>Registra le auto aziendali con la targa e le scadenze, oppure importa gli aggiornamenti ricevuti dai colleghi: i veicoli vengono creati da soli.</p><div class="sync-b" style="justify-content:center"><button class="btn primary" data-action="new-vehicle">Aggiungi un veicolo</button><button class="btn" data-action="import">Importa un aggiornamento</button></div></div>`;
+    return;
+  }
+  ({costi:viewCosti, registro:viewRegistro, dafare:viewDaFare, veicoli:viewVeicoli})[ui.tab](app);
+}
+
+function alertsHTML(list, limit){
+  if(!list.length) return `<p class="muted">Nessuna scadenza nei prossimi 30 giorni.</p>`;
+  return list.slice(0,limit||99).map(a=>`<div class="alert"><div class="what">${plateHTML(vLabel(a.vid),true)}<span>${esc(a.text)}</span></div><span class="when ${sev(a.days)}">${whenText(a)}</span></div>`).join('');
+}
+
+function viewCosti(app){
+  const years = yearsAvailable(); if(!years.includes(ui.year)) ui.year = years[0];
+  const recs = costRecs(ui.year, ui.vehicle);
+  const {fuel,serv} = monthly(recs);
+  const totF = fuel.reduce((a,b)=>a+b,0), totS = serv.reduce((a,b)=>a+b,0), tot = totF+totS;
+  const now = new Date();
+  const months = ui.year===String(now.getFullYear()) ? now.getMonth()+1 : 12;
+  const avg = tot/months;
+  const open = R().filter(r=>r.kind==='quote' && (r.status==='attesa'||r.status==='approvato') && (!ui.vehicle||r.vehicleId===ui.vehicle));
+  const openSum = open.reduce((a,r)=>a+(r.amount||0),0);
+  const sel = ui.month;
+  const readout = sel==null
+    ? `<span>Anno ${esc(ui.year)}</span><span>Carburante <b>${eur(totF)}</b></span><span>Manutenzione <b>${eur(totS)}</b></span><span>Totale <b>${eur(tot)}</b></span>`
+    : `<span>${MONTHS[sel]} ${esc(ui.year)}</span><span>Carburante <b>${eur(fuel[sel])}</b></span><span>Manutenzione <b>${eur(serv[sel])}</b></span><span>Totale <b>${eur(fuel[sel]+serv[sel])}</b></span>`;
+  const vlist = V().filter(v=>!ui.vehicle||v.id===ui.vehicle);
+  const rows = vlist.map(v=>({v, s:vehicleStats(v,ui.year)}));
+  const sumRow = rows.reduce((a,{s})=>({f:a.f+s.fuelCost,m:a.m+s.servCost,t:a.t+s.total}),{f:0,m:0,t:0});
+  app.innerHTML = `
+    <div class="filters">
+      <select data-change="year" aria-label="Anno">${years.map(y=>`<option ${y===ui.year?'selected':''}>${y}</option>`).join('')}</select>
+      <select data-change="vehicle" aria-label="Veicolo"><option value="">${isAdmin()?'Tutto il parco':'La mia auto'}</option>${V().map(v=>`<option value="${v.id}" ${v.id===ui.vehicle?'selected':''}>${esc(v.plate)}${v.model?' – '+esc(v.model):''}</option>`).join('')}</select>
+    </div>
+    <div class="kpis">
+      <div class="kpi main"><div class="v">${eur0(tot)}</div><div class="l">Spesa nel ${esc(ui.year)}</div></div>
+      <div class="kpi"><div class="v">${eur0(avg)}</div><div class="l">Media al mese</div></div>
+      <div class="kpi f"><div class="v">${eur0(totF)}</div><div class="l">Carburante${tot?` (${Math.round(totF/tot*100)}%)`:''}</div></div>
+      <div class="kpi s"><div class="v">${eur0(totS)}</div><div class="l">Manutenzione${tot?` (${Math.round(totS/tot*100)}%)`:''}</div></div>
+    </div>
+    ${open.length?`<div class="notice">Preventivi aperti: ${open.length} per un totale di ${eur(openSum)} (non inclusi nella spesa).</div>`:''}
+    <div class="card">
+      <h2>Spesa mese per mese</h2>
+      <div class="chart-wrap">${chartSVG(fuel,serv,sel)}</div>
+      <div class="legend"><span style="--c:var(--fuel)">Carburante</span><span style="--c:var(--service)">Manutenzione</span></div>
+      <div class="readout" aria-live="polite">${readout}</div>
+      <p class="hint">Tocca un mese per vedere il dettaglio.</p>
+    </div>
+    <div class="card">
+      <h2>Costi per veicolo</h2>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Veicolo</th><th>Carburante</th><th>Manutenzione</th><th>Totale</th><th>l/100 km</th><th>€/km</th></tr></thead>
+        <tbody>${rows.map(({v,s})=>`<tr><td>${plateHTML(v.plate,true)}<small>${esc(v.assignee||v.model||'')}</small></td><td data-label="Carburante">${eur0(s.fuelCost)}</td><td data-label="Manutenzione">${eur0(s.servCost)}</td><td data-label="Totale"><b>${eur0(s.total)}</b></td><td data-label="l/100 km">${s.l100!=null?nf(s.l100,1):'—'}</td><td data-label="€/km">${s.perKm!=null?nf(s.perKm,2):'—'}</td></tr>`).join('')}</tbody>
+        ${rows.length>1?`<tfoot><tr><td>Totale parco</td><td data-label="Carburante">${eur0(sumRow.f)}</td><td data-label="Manutenzione">${eur0(sumRow.m)}</td><td data-label="Totale">${eur0(sumRow.t)}</td><td></td><td></td></tr></tfoot>`:''}
+      </table></div>
+      <p class="hint">Consumi e costo al km si calcolano dai chilometri indicati nelle registrazioni dell’anno: servono almeno due rifornimenti con km e litri.</p>
+    </div>
+    <div class="card">
+      <h2>Da tenere d’occhio</h2>
+      ${alertsHTML(allAlerts().filter(a=>!ui.vehicle||a.vid===ui.vehicle),5)}
+    </div>`;
+}
+
+function niceMax(m){ const p=Math.pow(10,Math.floor(Math.log10(m))); for(const s of [1,2,2.5,5,10]){ if(s*p>=m) return s*p; } return 10*p; }
+function chartSVG(fuel, serv, sel){
+  const mob = window.innerWidth < 600;
+  const W=mob?360:720, H=mob?230:250, L=mob?46:52, R=8, T=10, B=28, iw=W-L-R, ih=H-T-B;
+  const tot = fuel.map((f,i)=>f+serv[i]);
+  const max = niceMax(Math.max(...tot,1));
+  const col = iw/12, bw = col*.62;
+  let g='';
+  for(let i=0;i<=4;i++){
+    const y=T+ih-ih*i/4; const val=max*i/4;
+    g+=`<line class="grid" x1="${L}" x2="${W-R}" y1="${y}" y2="${y}"/><text x="${L-6}" y="${y+4}" text-anchor="end">${nf(val,0)} €</text>`;
+  }
+  let bars='';
+  for(let i=0;i<12;i++){
+    const x=L+i*col, bx=x+(col-bw)/2;
+    const hs=serv[i]/max*ih, hf=fuel[i]/max*ih;
+    if(sel===i) bars+=`<rect class="sel" x="${x}" y="${T}" width="${col}" height="${ih}" rx="4"/>`;
+    if(hs>0) bars+=`<rect class="bs" x="${bx}" y="${T+ih-hs}" width="${bw}" height="${hs}"/>`;
+    if(hf>0) bars+=`<rect class="bf" x="${bx}" y="${T+ih-hs-hf}" width="${bw}" height="${hf}"/>`;
+    bars+=`<text x="${x+col/2}" y="${H-8}" text-anchor="middle">${MONTHS_S[i]}</text>`;
+    bars+=`<rect class="hit" data-action="month" data-m="${i}" x="${x}" y="${T}" width="${col}" height="${ih+B}" role="button" tabindex="0" aria-label="${MONTHS[i]}: ${eur(tot[i])}"/>`;
+  }
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Spesa mensile per carburante e manutenzione">${g}${bars}</svg>`;
+}
+
+/* registro */
+const KIND_LABEL = {fuel:'Rifornimento', service:'Manutenzione', quote:'Preventivo', todo:'Da fare'};
+const QSTATUS = {attesa:['In attesa','warn'], approvato:['Approvato','ok'], rifiutato:['Rifiutato','bad'], eseguito:['Eseguito','ok']};
+function rowHTML(r, withActions){
+  const img = (r.files||[]).find(f=>(f.type||'').startsWith('image/'));
+  const title = r.kind==='fuel'
+    ? [r.liters?`${nf(r.liters,2)} L`:'', r.fuel||'', r.supplier||''].filter(Boolean).join(' ') || 'Rifornimento'
+    : (r.desc || r.category || KIND_LABEL[r.kind]);
+  const meta = [];
+  const dt = r.kind==='todo' ? (r.dueDate?`entro il ${fmtDate(r.dueDate)}`:'senza scadenza') : fmtDate(r.date);
+  meta.push(`<span>${esc(dt)}</span>`);
+  if(r.kind==='todo' && r.dueKm) meta.push(`<span>entro ${nf(r.dueKm,0)} km</span>`);
+  if(r.km && r.kind!=='todo') meta.push(`<span>${nf(r.km,0)} km</span>`);
+  if(r.kind==='fuel' && r.liters && r.amount) meta.push(`<span>${nf(r.amount/r.liters,3)} €/L</span>`);
+  if(r.kind==='service' && r.supplier) meta.push(`<span>${esc(r.supplier)}</span>`);
+  if(r.kind==='quote' && r.supplier) meta.push(`<span>${esc(r.supplier)}</span>`);
+  if(r.invoiceNo) meta.push(`<span>doc. ${esc(r.invoiceNo)}</span>`);
+  if(r.by) meta.push(`<span>di ${esc(r.by)}</span>`);
+  if((r.files||[]).length) meta.push(`<span>${r.files.length} ${r.files.length===1?'allegato':'allegati'}</span>`);
+  const q = r.kind==='quote' ? QSTATUS[r.status||'attesa'] : null;
+  let acts='';
+  if(withActions && Store.canWrite){
+    if(r.kind==='todo') acts = `<div class="acts"><button class="btn small" data-action="convert" data-id="${r.id}">Segna come eseguito</button></div>`;
+    if(r.kind==='quote' && (r.status||'attesa')==='attesa') acts = `<div class="acts"><button class="btn small" data-action="qstatus" data-id="${r.id}" data-s="approvato">Approva</button><button class="btn small" data-action="qstatus" data-id="${r.id}" data-s="rifiutato">Rifiuta</button></div>`;
+    if(r.kind==='quote' && r.status==='approvato') acts = `<div class="acts"><button class="btn small" data-action="convert" data-id="${r.id}">Registra fattura</button><button class="btn small" data-action="qstatus" data-id="${r.id}" data-s="attesa">Rimetti in attesa</button></div>`;
+  }
+  return `<div class="row k-${r.kind}" data-action="edit" data-id="${r.id}" role="button" tabindex="0">
+    ${img?`<img class="thumb" src="${esc(img.url)}" alt="">`:''}
+    <div class="main">
+      <div class="t1"><span class="kind">${KIND_LABEL[r.kind]}</span>${plateHTML(vLabel(r.vehicleId),true)}${q?`<span class="st ${q[1]}">${q[0]}</span>`:''}${(r.kind==='fuel' && r.needsRead && r.amount==null)?'<span class="st warn">Da leggere</span>':''}</div>
+      <div class="title">${esc(title)}</div>
+      <div class="meta">${meta.join('')}</div>
+      ${acts}
+    </div>
+    ${r.amount!=null && r.amount!==''?`<div class="amt">${eur(r.amount)}</div>`:''}
+  </div>`;
+}
+function filteredRegistro(){
+  const q = ui.regQuery.trim().toLowerCase();
+  return R().filter(r=>r.kind!=='todo')
+    .filter(r=>ui.regKind==='all' || r.kind===ui.regKind)
+    .filter(r=>!ui.regVehicle || r.vehicleId===ui.regVehicle)
+    .filter(r=>!q || [r.desc,r.supplier,r.category,r.invoiceNo,r.notes,r.by,vLabel(r.vehicleId)].join(' ').toLowerCase().includes(q))
+    .sort((a,b)=>(b.date||'').localeCompare(a.date||'') || (b.createdAt||0)-(a.createdAt||0));
+}
+function registroListHTML(){
+  const list = filteredRegistro();
+  if(!list.length) return `<div class="card empty"><h2>Nessuna registrazione</h2><p>Aggiungi un rifornimento, una fattura o un preventivo con il pulsante in alto.</p></div>`;
+  let out='', cur='', sum=0, buf='';
+  const flush = () => { if(buf) out += `<div class="month-h"><h3>${cur}</h3><span>${eur(sum)}</span></div>${buf}`; buf=''; sum=0; };
+  list.forEach(r=>{
+    const key = r.date ? `${MONTHS[parseInt(r.date.slice(5,7),10)-1]} ${r.date.slice(0,4)}` : 'Senza data';
+    if(key!==cur){ flush(); cur=key; }
+    if(isCost(r)) sum += r.amount||0;
+    buf += rowHTML(r,true);
+  });
+  flush();
+  return out;
+}
+function viewRegistro(app){
+  const chip = (k,l)=>`<button class="chip" data-action="regkind" data-k="${k}" aria-pressed="${ui.regKind===k}">${l}</button>`;
+  app.innerHTML = `
+    ${syncCardHTML()}<div class="chips">${chip('all','Tutto')}${chip('fuel','Rifornimenti')}${chip('service','Manutenzioni')}${chip('quote','Preventivi')}</div>
+    <div class="filters">
+      <select data-change="regVehicle" aria-label="Veicolo"><option value="">${isAdmin()?'Tutti i veicoli':'La mia auto'}</option>${V().map(v=>`<option value="${v.id}" ${v.id===ui.regVehicle?'selected':''}>${esc(v.plate)}</option>`).join('')}</select>
+      <input type="search" id="regq" placeholder="Cerca fornitore, descrizione, n. fattura" value="${esc(ui.regQuery)}" aria-label="Cerca">
+      <button class="btn" data-action="export">Esporta CSV</button>
+    </div>
+    <div id="reglist">${registroListHTML()}</div>`;
+}
+
+function viewDaFare(app){
+  const todos = R().filter(r=>r.kind==='todo').sort((a,b)=>(a.dueDate||'9999').localeCompare(b.dueDate||'9999'));
+  const quotes = R().filter(r=>r.kind==='quote' && (r.status==='attesa'||r.status==='approvato')||false).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const al = allAlerts().filter(a=>a.kind==='veh');
+  app.innerHTML = `
+    <div class="card"><h2>Scadenze dei veicoli</h2>${alertsHTML(al)}</div>
+    <h2 style="margin:18px 2px 8px;font-size:24px">Lavori da fare</h2>
+    ${todos.length?todos.map(r=>rowHTML(r,true)).join(''):`<div class="card muted">Nessun lavoro in programma. Aggiungi qui tagliandi, gomme o riparazioni da prenotare.</div>`}
+    <h2 style="margin:22px 2px 8px;font-size:24px">Preventivi da decidere</h2>
+    ${quotes.length?quotes.map(r=>rowHTML(r,true)).join(''):`<div class="card muted">Nessun preventivo aperto.</div>`}`;
+}
+
+function viewVeicoli(app){
+  const cards = V().slice().sort((a,b)=>a.plate.localeCompare(b.plate)).map(v=>{
+    const dl = DEADLINES.filter(([k])=>v[k]).map(([k,l])=>{ const d=daysTo(v[k]); return `<dt>${l}</dt><dd class="${sev(d)==='ok'?'':'st '+sev(d)}" style="${sev(d)==='ok'?'':'background:none;padding:0'}">${fmtDate(v[k])}</dd>`; }).join('');
+    return `<div class="vcard" data-action="edit-vehicle" data-id="${v.id}" role="button" tabindex="0">
+      ${plateHTML(v.plate)}
+      <h3>${esc(v.model||'Modello non indicato')}</h3>
+      <div class="muted small">${esc(v.assignee||'Nessun assegnatario')}${v.fuel?`, ${esc(v.fuel)}`:''}</div>
+      <dl><dt>Chilometri</dt><dd>${v.km?nf(v.km,0)+' km':'—'}</dd>${dl}${(v.plan||[]).filter(p=>p.everyKm&&p.lastKm!=null).map(p=>`<dt>${esc(p.name)}</dt><dd>a ${nf(p.lastKm+p.everyKm,0)} km</dd>`).join('')}</dl>
+    </div>`;
+  }).join('');
+  app.innerHTML = `${isAdmin()?'<div class="filters"><button class="btn primary" data-action="new-vehicle">Aggiungi veicolo</button></div>':''}
+    ${cards?`<div class="vgrid">${cards}</div>`:`<div class="card empty"><h2>Nessun veicolo</h2><p>Inserisci la prima auto aziendale per iniziare.</p></div>`}`;
+}
+
+/* ---------- finestre (sheet) ---------- */
+let sheetOpen=false;
+function openSheet(title, html, mount){
+  closeSheet();
+  const root=$('#sheet-root');
+  root.innerHTML = `<div class="scrim" data-action="close-sheet"></div><section class="sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}"><header class="sheet-h"><h2>${esc(title)}</h2><button class="icon-btn" data-action="close-sheet" aria-label="Chiudi">×</button></header><div class="sheet-b">${html}</div></section>`;
+  document.documentElement.classList.add('locked'); sheetOpen=true;
+  if(mount) mount($('.sheet-b',root));
+}
+function closeSheet(){ $('#sheet-root').innerHTML=''; document.documentElement.classList.remove('locked'); sheetOpen=false; }
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ if($('#viewer-root').innerHTML) closeViewer(); else if(sheetOpen) closeSheet(); } });
+
+function addMenu(){
+  if(!state.ready){ toast('Sto ancora caricando i dati, riprova tra un attimo'); return; }
+  if(!Store.canWrite){ toast('Accesso in sola lettura'); return; }
+  if(!V().length){ vehicleForm(); return; }
+  openSheet('Cosa vuoi registrare?', `<div class="menu">
+    <button class="k-fuel" data-action="new" data-k="fuel"><b>Rifornimento</b><span>Scatta lo scontrino o inserisci i dati a mano</span></button>
+    <button class="k-service" data-action="new" data-k="service"><b>Manutenzione eseguita</b><span>Fattura o ricevuta dell’officina</span></button>
+    <button class="k-quote" data-action="new" data-k="quote"><b>Preventivo</b><span>Allega il preventivo ricevuto e decidi dopo</span></button>
+    <button class="k-todo" data-action="new" data-k="todo"><b>Lavoro da fare</b><span>Tagliando, gomme, riparazioni da programmare</span></button>
+  </div>`);
+}
+
+/*DATE-START*/
+const parseDMY = s => {
+  const m=String(s||'').match(/^(\d{2})\/(\d{2})\/(\d{4})$/); if(!m) return '';
+  const dd=+m[1], mm=+m[2], yy=+m[3]; const dt=new Date(yy,mm-1,dd);
+  if(dt.getFullYear()!==yy || dt.getMonth()!==mm-1 || dt.getDate()!==dd || yy<2000 || yy>2100) return '';
+  return m[3]+'-'+m[2]+'-'+m[1];
+};
+const maskDMY = v => { const d=String(v||'').replace(/\D/g,'').slice(0,8); return d.length>4 ? d.slice(0,2)+'/'+d.slice(2,4)+'/'+d.slice(4) : d.length>2 ? d.slice(0,2)+'/'+d.slice(2) : d; };
+/*DATE-END*/
+const CAL_ICON = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9.5h18M8 3v4M16 3v4"/></svg>';
+const dfld = (label,name,iso,cls='',hint='') => `<label class="f ${cls}"><span>${label}</span><div class="dwrap"><input type="text" class="dtxt" inputmode="numeric" placeholder="gg/mm/aaaa" maxlength="10" autocomplete="off" value="${esc(fmtDate(iso))}"><input type="date" class="dnat" value="${esc(iso||'')}" tabindex="-1" aria-label="Scegli dal calendario"><span class="dico">${CAL_ICON}</span></div><input type="hidden" name="${name}" data-date value="${esc(iso||'')}">${hint?`<small>${hint}</small>`:''}</label>`;
+const badDates = form => Array.from(form.querySelectorAll('.dtxt')).some(t => t.value.trim() && !t.closest('label').querySelector('input[data-date]').value);
+document.addEventListener('input', e=>{
+  const t=e.target; if(!t.classList || !t.classList.contains('dtxt')) return;
+  t.value = maskDMY(t.value);
+  const lab=t.closest('label'), iso=parseDMY(t.value);
+  lab.querySelector('input[data-date]').value=iso; lab.querySelector('.dnat').value=iso;
+});
+document.addEventListener('change', e=>{
+  const t=e.target; if(!t.classList || !t.classList.contains('dnat')) return;
+  const lab=t.closest('label'); lab.querySelector('.dtxt').value=fmtDate(t.value); lab.querySelector('input[data-date]').value=t.value;
+});
+document.addEventListener('click', e=>{
+  const n=e.target.closest && e.target.closest('.dnat');
+  if(n && n.showPicker){ try{ n.showPicker(); }catch(err){} }
+});
+const CATS = ['Tagliando','Gomme','Freni','Carrozzeria','Batteria','Revisione','Assicurazione','Bollo','Lavaggio','Altro'];
+const FUELS = ['Diesel','Benzina','GPL','Metano','Elettrico','Ibrido'];
+const fld = (label,name,val,attrs='',hint='',cls='') => `<label class="f ${cls}"><span>${label}</span><input type="text" name="${name}" value="${esc(val??'')}" ${attrs}>${hint?`<small>${hint}</small>`:''}</label>`;
+const sel = (label,name,opts,val,cls='',blank=false) => `<label class="f ${cls}"><span>${label}</span><select name="${name}">${blank?'<option value=""></option>':''}${opts.map(o=>{const [v,l]=Array.isArray(o)?o:[o,o]; return `<option value="${esc(v)}" ${String(v)===String(val??'')?'selected':''}>${esc(l)}</option>`;}).join('')}</select></label>`;
+
+function recordForm(kind, r={}){
+  if(!Store.canWrite){ toast('Accesso in sola lettura'); return; }
+  const isNew = !r.id;
+  const files = (r.files||[]).map(f=>({...f}));
+  const vId = r.vehicleId || ui.lastVehicle || (V().length===1?V()[0].id:'');
+  const vOpts = V().map(v=>[v.id, v.plate+(v.model?' – '+v.model:'')]);
+  const veh = vById(vId);
+  const titles = {fuel:'Rifornimento', service:'Manutenzione eseguita', quote:'Preventivo', todo:'Lavoro da fare'};
+  const attTitle = {fuel:'Scontrino del rifornimento', service:'Fattura o ricevuta', quote:'Preventivo', todo:'Documenti (facoltativo)'}[kind];
+  let body = '';
+  body += sel('Veicolo','vehicleId', vOpts, vId, 'full', !vId);
+  if(kind!=='todo') body += dfld(kind==='quote'?'Data del preventivo':'Data','date', r.date||todayStr());
+  if(kind==='fuel'){
+    body += fld('Importo totale (€)','amount', r.amount!=null?String(r.amount).replace('.',','):'', 'inputmode="decimal" placeholder="0,00" required', 'Facoltativo se alleghi la foto: lo leggo dallo scontrino');
+    body += fld('Litri','liters', r.liters!=null?String(r.liters).replace('.',','):'', 'inputmode="decimal" placeholder="0,00"');
+    body += `<div class="full muted small" id="ppl" style="margin-top:-4px"></div>`;
+    body += sel('Carburante','fuel', FUELS, r.fuel || (veh&&veh.fuel) || 'Diesel');
+    body += fld('Chilometri sul contakm','km', r.km||'', 'inputmode="numeric" placeholder="es. 84500"', veh&&veh.km?`Ultimo valore: ${nf(veh.km,0)} km`:'');
+    body += fld('Distributore','supplier', r.supplier||'', '', '', 'full');
+  } else {
+    body += sel('Categoria','category', CATS, r.category||'Tagliando');
+    if(kind==='service'||kind==='quote') body += fld(kind==='quote'?'Importo preventivo (€)':'Importo (€)','amount', r.amount!=null?String(r.amount).replace('.',','):'', 'inputmode="decimal" placeholder="0,00" required');
+    body += fld('Descrizione lavori','desc', r.desc||'', 'placeholder="es. Cambio olio e filtri"', '', 'full');
+    if(kind==='service'||kind==='quote') body += fld('Officina o fornitore','supplier', r.supplier||'', '');
+    if(kind==='service') body += fld('N. fattura','invoiceNo', r.invoiceNo||'', '');
+    if(kind==='service') body += fld('Chilometri','km', r.km||'', 'inputmode="numeric"', veh&&veh.km?`Ultimo valore: ${nf(veh.km,0)} km`:'');
+    if(kind==='service' && veh && (veh.plan||[]).length) body += sel('Intervento del piano (aggiorna gli avvisi)','planItem', veh.plan.map(p=>[p.name,p.name]), r.planItem||'', 'full', true);
+    if(kind==='quote') body += sel('Stato','status', [['attesa','In attesa'],['approvato','Approvato'],['rifiutato','Rifiutato'],['eseguito','Eseguito']], r.status||'attesa');
+    if(kind==='todo'){ body += dfld('Da fare entro il','dueDate', r.dueDate||''); body += fld('Oppure entro km','dueKm', r.dueKm||'', 'inputmode="numeric"'); }
+  }
+  body += `<label class="f full"><span>Note</span><textarea name="notes">${esc(r.notes||'')}</textarea></label>`;
+
+  const html = `<form id="rf" novalidate>
+    <div class="att">
+      <h3>${attTitle}</h3>
+      <div class="btns">
+        <button type="button" class="btn" data-pick="cam">Scatta foto</button>
+        <button type="button" class="btn" data-pick="file">Carica foto o PDF</button>
+        ${kind!=='todo' ? `<button type="button" class="btn" id="ocr" hidden>Compila dai dati letti</button>`:''}
+      </div>
+      <input type="file" id="f-cam" accept="image/*" capture="environment" multiple hidden>
+      <input type="file" id="f-file" accept="image/*,application/pdf" multiple hidden>
+      <div class="thumbs" id="thumbs"></div>
+      <p class="hint" id="atthint">${kind==='fuel' ? 'Appena allegata la foto leggo data, importo e litri dallo scontrino: controlla sempre i valori. La prima volta serve la connessione.' : (kind!=='todo' ? 'Dopo la foto puoi usare “Compila dai dati letti” per leggere data, importo e n. fattura: controlla sempre i valori.' : 'Puoi allegare più pagine.')}</p>
+    </div>
+    <div class="fgrid">${body}</div>
+    <div class="err" id="ferr" role="alert"></div>
+    <div class="actions">
+      <button class="btn primary" type="submit">Salva</button>
+      <button class="btn" type="button" data-action="close-sheet">Annulla</button>
+      <span class="spacer"></span>
+      ${isNew?'':`<button class="btn danger" type="button" id="delbtn">Elimina</button>`}
+    </div>
+  </form>`;
+
+  openSheet((isNew?'Nuovo: ':'Modifica: ')+titles[kind].toLowerCase(), html, root=>{
+    const form=$('#rf',root), thumbs=$('#thumbs',root), err=$('#ferr',root);
+    const ocrBtn = $('#ocr',root);
+    const renderThumbs = () => {
+      thumbs.innerHTML = files.map((f,i)=>`<div class="th" data-fv="${i}" role="button" tabindex="0">${(f.type||'').startsWith('image/')?`<img src="${esc(f.url)}" alt="${esc(f.name)}">`:`<span class="pdf">PDF</span>`}<button type="button" class="x" data-rm="${i}" aria-label="Rimuovi allegato">×</button></div>`).join('');
+      if(ocrBtn) ocrBtn.hidden = !files.some(f=>(f.type||'').startsWith('image/'));
+    };
+    renderThumbs();
+    const onFiles = async list => {
+      err.textContent=''; $('#atthint',root).textContent='Elaboro le immagini…';
+      let gotImg=false;
+      for(const f of Array.from(list)){
+        try{ const o=await processFile(f); files.push(o); if((o.type||'').startsWith('image/')) gotImg=true; renderThumbs(); }
+        catch(e){ err.textContent = e.message || 'Allegato non riuscito'; }
+      }
+      $('#atthint',root).textContent = 'Allegati pronti. Ricorda di premere Salva.';
+      if(gotImg && kind==='fuel') runOCR(true);
+    };
+    $('#f-cam',root).addEventListener('change',e=>{ onFiles(e.target.files); e.target.value=''; });
+    $('#f-file',root).addEventListener('change',e=>{ onFiles(e.target.files); e.target.value=''; });
+    root.addEventListener('click',e=>{
+      const pick=e.target.closest('[data-pick]'); if(pick){ $(pick.dataset.pick==='cam'?'#f-cam':'#f-file',root).click(); return; }
+      const rm=e.target.closest('[data-rm]'); if(rm){ e.stopPropagation(); files.splice(+rm.dataset.rm,1); renderThumbs(); return; }
+      const fv=e.target.closest('[data-fv]'); if(fv){ openViewer(files[+fv.dataset.fv]); }
+    });
+    const ppl = $('#ppl',root);
+    const updatePpl = () => { if(!ppl) return; const a=parseNum(form.elements.amount.value), l=parseNum(form.elements.liters.value); ppl.textContent = (a&&l)?`Prezzo al litro: ${nf(a/l,3)} €/L`:''; };
+    if(ppl){ form.elements.amount.addEventListener('input',updatePpl); form.elements.liters.addEventListener('input',updatePpl); updatePpl(); }
+    const flash = el => { const l=el.closest('label'); if(!l) return; l.classList.remove('filled'); void l.offsetWidth; l.classList.add('filled'); };
+    const setv = (name,v,over=true) => {
+      const el=form.elements[name]; if(!el||v==null||v==='') return;
+      if(el.type==='hidden' && el.dataset.date!==undefined){
+        if(typeof v==='string' && /^\d{4}-\d{2}-\d{2}$/.test(v)){ const lab=el.closest('label'); el.value=v; lab.querySelector('.dnat').value=v; lab.querySelector('.dtxt').value=fmtDate(v); flash(el); }
+        return;
+      }
+      if(!over && String(el.value||'').trim()!=='') return;
+      el.value = typeof v==='number' ? String(v).replace('.',',') : String(v);
+      flash(el);
+    };
+    const runOCR = async auto => {
+      const imgFiles = files.filter(f=>(f.type||'').startsWith('image/')).slice(0,2);
+      if(!imgFiles.length) return;
+      const hint=$('#atthint',root); err.textContent='';
+      if(ocrBtn){ ocrBtn.disabled=true; ocrBtn.textContent='Lettura in corso…'; }
+      try{
+        const texts=[];
+        for(const f of imgFiles){
+          hint.textContent='Leggo la ricevuta… (la prima volta serve la connessione e qualche secondo)';
+          texts.push(await ocrText(await fileBlob(f), pct=>{ hint.textContent=`Leggo la ricevuta… ${pct}%`; }));
+        }
+        const out = parseReceipt(texts.join('\n'), kind==='fuel' ? 'fuel' : 'service');
+        const found = out && (out.amount || out.liters || out.date || out.plate || out.invoiceNo);
+        if(found){
+          const over = !auto;
+          setv('date',out.date);
+          setv('amount',out.amount,over); setv('liters',out.liters,over); setv('supplier',out.supplier,over); setv('invoiceNo',out.invoiceNo,over); setv('km',out.km,over);
+          if(out.fuel && FUELS.includes(out.fuel)) setv('fuel',out.fuel);
+          if(out.plate){ const pv=state.vehicles.find(x=>x.plate===normPlate(out.plate)); if(pv && (over || !form.elements.vehicleId.value)) form.elements.vehicleId.value=pv.id; }
+          updatePpl(); hint.textContent='Dati letti dalla ricevuta: controllali prima di salvare.';
+        } else hint.textContent='Non sono riuscito a leggere i dati: compila a mano.';
+      }catch(e){
+        hint.textContent=''; err.textContent='Lettura automatica non disponibile (serve la connessione): compila i campi a mano.';
+      }
+      if(ocrBtn){ ocrBtn.disabled=false; ocrBtn.textContent='Compila dai dati letti'; }
+    };
+    if(ocrBtn) ocrBtn.addEventListener('click', ()=>runOCR(false));
+    const delbtn=$('#delbtn',root);
+    if(delbtn) delbtn.addEventListener('click', async ()=>{
+      if(!delbtn.classList.contains('armed')){ delbtn.classList.add('armed'); delbtn.textContent='Conferma eliminazione'; setTimeout(()=>{ delbtn.classList.remove('armed'); delbtn.textContent='Elimina'; },4000); return; }
+      try{ await del('records', r.id); closeSheet(); toast('Eliminato'); }catch(e){ err.textContent='Eliminazione non riuscita'; }
+    });
+    form.addEventListener('submit', async e=>{
+      e.preventDefault(); err.textContent='';
+      if(badDates(form)){ err.textContent='Controlla le date: usa il formato gg/mm/aaaa.'; return; }
+      const fd=Object.fromEntries(new FormData(form).entries());
+      if(!fd.vehicleId){ err.textContent='Scegli il veicolo.'; return; }
+      const rec = { id: r.id || uid(), kind, vehicleId: fd.vehicleId, notes:(fd.notes||'').trim(), files: files.map(fileKeep), createdAt: r.createdAt || Date.now() };
+      if(kind!=='todo'){ if(!fd.date){ err.textContent='Indica la data.'; return; } rec.date=fd.date; }
+      if(kind==='fuel'){
+        const a=parseNum(fd.amount);
+        const hasImg=files.some(f=>(f.type||'').startsWith('image/'));
+        if((a==null||a<=0) && !hasImg){ err.textContent='Indica l’importo totale.'; return; }
+        rec.amount = a>0 ? a : null; rec.needsRead = !(a>0); rec.liters=parseNum(fd.liters); rec.fuel=fd.fuel; rec.km=parseKm(fd.km); rec.supplier=(fd.supplier||'').trim();
+      } else {
+        rec.category=fd.category; rec.desc=(fd.desc||'').trim();
+        if(kind==='service'||kind==='quote'){ const a=parseNum(fd.amount); if(a==null||a<0){ err.textContent='Indica l’importo.'; return; } rec.amount=a; rec.supplier=(fd.supplier||'').trim(); }
+        if(kind==='service'){ rec.invoiceNo=(fd.invoiceNo||'').trim(); rec.km=parseKm(fd.km); rec.planItem=fd.planItem||''; }
+        if(kind==='quote') rec.status=fd.status;
+        if(kind==='todo'){ rec.dueDate=fd.dueDate||''; rec.dueKm=parseKm(fd.dueKm); rec.status='aperto'; }
+      }
+      const btn=$('button[type=submit]',form); btn.disabled=true; btn.textContent='Salvo…';
+      try{
+        await put('records', rec);
+        ui.lastVehicle = rec.vehicleId;
+        const v=vById(rec.vehicleId);
+        let nv=v;
+        if(v && rec.km && rec.km>(v.km||0)) nv={...v, km:rec.km};
+        if(v && rec.planItem && (v.plan||[]).some(p=>p.name===rec.planItem)){ const k=rec.km||v.km||null; nv={...(nv||v), plan:v.plan.map(p=>p.name===rec.planItem?{...p,lastKm:k}:p)}; }
+        if(nv!==v) await put('vehicles',nv);
+        if(r.fromId){
+          if(r.fromKind==='todo') await del('records', r.fromId);
+          else if(r.fromKind==='quote'){ const q=R().find(x=>x.id===r.fromId); if(q) await put('records',{...q,status:'eseguito'}); }
+        }
+        closeSheet(); toast('Salvato');
+      }catch(e2){ btn.disabled=false; btn.textContent='Salva'; err.textContent = (e2 && e2.code==='quota_exceeded') ? 'Spazio esaurito: elimina qualche allegato o registrazione.' : 'Salvataggio non riuscito. Riprova.'; }
+    });
+  });
+}
+
+function vehicleForm(v={}, opts={}){
+  if(!Store.canWrite){ toast('Accesso in sola lettura'); return; }
+  const isNew=!v.id;
+  const plan=(v.plan||[]).map(p=>({...p}));
+  const html = `<form id="vf" novalidate>
+    <div class="fgrid">
+      ${fld('Targa','plate', v.plate||'', 'required autocapitalize="characters" placeholder="AB123CD"')}
+      ${fld('Marca e modello','model', v.model||'', 'placeholder="es. Fiat Panda"')}
+      ${fld('Assegnata a','assignee', v.assignee||'', '')}
+      ${sel('Alimentazione','fuel', FUELS, v.fuel||'Diesel')}
+      ${fld('Chilometri attuali','km', v.km||'', 'inputmode="numeric"')}
+      ${fld('Tagliando entro km','tagliandoKm', v.tagliandoKm||'', 'inputmode="numeric"')}
+      ${dfld('Scadenza revisione','revisione', v.revisione||'')}
+      ${dfld('Scadenza bollo','bollo', v.bollo||'')}
+      ${dfld('Scadenza assicurazione','assicurazione', v.assicurazione||'')}
+      ${dfld('Prossimo tagliando (data)','tagliandoData', v.tagliandoData||'')}
+      <div class="full">
+        <h3 style="font-size:20px;margin:6px 0 4px">Piano di manutenzione a chilometri</h3>
+        <p class="hint" style="margin:0 0 8px">Per ogni intervento indica ogni quanti km va fatto e a quanti km è stato fatto l’ultima volta: riceverai un avviso 1.500 km prima. I valori suggeriti sono indicativi, controllali sul libretto di uso e manutenzione.</p>
+        <div id="planbox"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+          <button type="button" class="btn small" id="padd">Aggiungi intervento</button>
+          <button type="button" class="btn small" id="pstd">Piano standard</button>
+          
+        </div>
+      </div>
+      <label class="f full"><span>Note</span><textarea name="notes">${esc(v.notes||'')}</textarea></label>
+    </div>
+    <div class="err" id="ferr" role="alert"></div>
+    <div class="actions">
+      <button class="btn primary" type="submit">Salva</button>
+      <button class="btn" type="button" data-action="close-sheet">Annulla</button>
+      <span class="spacer"></span>
+      ${(isNew||!isAdmin())?'':`<button class="btn danger" type="button" id="delbtn">Elimina</button>`}
+    </div></form>`;
+  openSheet(opts.mine?'La mia auto':(isNew?'Nuovo veicolo':'Modifica veicolo'), html, root=>{
+    const form=$('#vf',root), err=$('#ferr',root), planBox=$('#planbox',root);
+    const renderPlan=()=>{
+      planBox.innerHTML = plan.length
+        ? `<div class="prow ph"><span>Intervento</span><span>Ogni km</span><span>Ultimo a km</span><span></span></div>` + plan.map((p,i)=>`<div class="prow"><input type="text" data-pi="${i}" data-pf="name" value="${esc(p.name)}" aria-label="Intervento"><input type="text" inputmode="numeric" data-pi="${i}" data-pf="everyKm" value="${p.everyKm||''}" aria-label="Ogni quanti km"><input type="text" inputmode="numeric" data-pi="${i}" data-pf="lastKm" value="${p.lastKm!=null?p.lastKm:''}" aria-label="Chilometri dell’ultimo intervento"><button type="button" class="icon-btn" data-prm="${i}" aria-label="Rimuovi intervento">×</button></div>`).join('')
+        : `<p class="hint">Nessun intervento in programma.</p>`;
+    };
+    renderPlan();
+    root.addEventListener('input',e=>{ const i=e.target.dataset && e.target.dataset.pi; if(i==null) return; const f=e.target.dataset.pf; plan[+i][f] = f==='name' ? e.target.value : parseKm(e.target.value); });
+    root.addEventListener('click',e=>{ const rm=e.target.closest('[data-prm]'); if(rm){ plan.splice(+rm.dataset.prm,1); renderPlan(); } });
+    $('#padd',root).addEventListener('click',()=>{ plan.push({name:'',everyKm:null,lastKm:null}); renderPlan(); });
+    $('#pstd',root).addEventListener('click',()=>{
+      const std=[['Tagliando olio e filtri',15000],['Filtri aria e abitacolo',30000],['Controllo freni e pastiglie',30000],['Candele o filtro gasolio',60000],['Cinghia di distribuzione',120000]];
+      std.forEach(([name,everyKm])=>{ if(!plan.some(p=>p.name===name)) plan.push({name,everyKm,lastKm:null}); });
+      renderPlan(); toast('Piano standard aggiunto: indica i km dell’ultimo intervento');
+    });
+    const delbtn=$('#delbtn',root);
+    if(delbtn) delbtn.addEventListener('click', async ()=>{
+      const n = state.records.filter(r=>r.vehicleId===v.id).length;
+      if(n){ err.textContent=`Ci sono ${n} registrazioni collegate: eliminale prima di rimuovere il veicolo.`; return; }
+      if(!delbtn.classList.contains('armed')){ delbtn.classList.add('armed'); delbtn.textContent='Conferma eliminazione'; setTimeout(()=>{ delbtn.classList.remove('armed'); delbtn.textContent='Elimina'; },4000); return; }
+      try{ await del('vehicles', v.id); closeSheet(); toast('Veicolo eliminato'); }catch(e){ err.textContent='Eliminazione non riuscita'; }
+    });
+    form.addEventListener('submit', async e=>{
+      e.preventDefault(); err.textContent='';
+      if(badDates(form)){ err.textContent='Controlla le date: usa il formato gg/mm/aaaa.'; return; }
+      const fd=Object.fromEntries(new FormData(form).entries());
+      const plate=(fd.plate||'').toUpperCase().replace(/\s+/g,'');
+      if(!plate){ err.textContent='Indica la targa.'; return; }
+      if(state.vehicles.some(x=>x.plate===plate && x.id!==v.id)){ err.textContent='Esiste già un veicolo con questa targa.'; return; }
+      const rec={ id:v.id||uid(), plate, model:(fd.model||'').trim(), assignee:(fd.assignee||'').trim(), fuel:fd.fuel, km:parseKm(fd.km), tagliandoKm:parseKm(fd.tagliandoKm), revisione:fd.revisione||'', bollo:fd.bollo||'', assicurazione:fd.assicurazione||'', tagliandoData:fd.tagliandoData||'', notes:(fd.notes||'').trim(), plan: plan.filter(p=>p.name && p.name.trim() && p.everyKm).map(p=>({name:p.name.trim(), everyKm:p.everyKm, lastKm:p.lastKm!=null?p.lastKm:null})) };
+      const btn=$('button[type=submit]',form); btn.disabled=true; btn.textContent='Salvo…';
+      try{ await put('vehicles',rec); if(opts.mine){ Meta.myVehicle=rec.id; if(!Meta.name && rec.assignee) Meta.name=rec.assignee; await saveMeta(); render(); } closeSheet(); toast('Veicolo salvato'); }catch(e2){ btn.disabled=false; btn.textContent='Salva'; err.textContent='Salvataggio non riuscito. Riprova.'; }
+    });
+  });
+}
+
+/* ---------- esportazione ---------- */
+async function exportCSV(){
+  const rows = filteredRegistro();
+  const q = v => { v = v==null?'':String(v); return /[;"\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; };
+  const head = ['Data','Tipo','Targa','Categoria','Descrizione','Fornitore','N. documento','Km','Litri','Importo','Stato','Allegati','Inserito da'];
+  const lines = [head.join(';')].concat(rows.map(r=>[fmtDate(r.date),KIND_LABEL[r.kind],vLabel(r.vehicleId),r.category||'',r.desc||'',r.supplier||'',r.invoiceNo||'',r.km||'',r.liters!=null?String(r.liters).replace('.',','):'',r.amount!=null?String(r.amount).replace('.',','):'',r.kind==='quote'?(QSTATUS[r.status||'attesa'][0]):'',(r.files||[]).length,r.by||''].map(q).join(';')));
+  const data = '\ufeff'+lines.join('\r\n');
+  const filename = `parco-auto-${todayStr()}.csv`;
+  if(Store.dl){ try{ await Store.dl.save({filename, data}); toast('File pronto'); return; }catch(e){ if(e && e.code==='declined') return; } }
+  try{ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([data],{type:'text/csv'})); a.download=filename; document.body.appendChild(a); a.click(); a.remove(); }catch(e){ toast('Esportazione non disponibile qui'); }
+}
+
+/* ---------- invio e importazione degli aggiornamenti ---------- */
+const Meta = { role:'', lastSent:0, name:'', to:'', myVehicle:'', lastBackup:0, pin:'' };
+const saveMeta = () => IDB.set('meta', { role:Meta.role, lastSent:Meta.lastSent, name:Meta.name, to:Meta.to, myVehicle:Meta.myVehicle, lastBackup:Meta.lastBackup, pin:Meta.pin });
+const stamp = x => x.updatedAt || x.createdAt || 0;
+const normPlate = s => String(s||'').toUpperCase().replace(/\s+/g,'');
+
+function pendingChanges(){
+  const ls = Meta.lastSent||0, inc = x => ls===0 || stamp(x) > ls;
+  return { records: state.records.filter(inc), vehicles: state.vehicles.filter(inc) };
+}
+function onboardingHTML(){
+  const others = state.vehicles.length ? `<div class="card"><h2>Hai già inserito la tua auto?</h2>${state.vehicles.map(v=>`<div class="alert"><div class="what">${plateHTML(v.plate,true)}<span>${esc(v.model||'')}</span></div><button class="btn small" data-action="pick-mine" data-id="${v.id}">È la mia</button></div>`).join('')}</div>` : '';
+  return `<div class="card empty"><h2>Qual è la tua auto?</h2><p>Imposta l’auto che usi. Da quel momento vedrai solo i suoi rifornimenti, interventi e scadenze, e potrai inviare gli aggiornamenti a chi gestisce il parco.</p><button class="btn primary" data-action="set-mine">Imposta la mia auto</button></div>${others}`;
+}
+function syncCardHTML(){
+  const n = pendingChanges().records.length;
+  const last = Meta.lastSent ? 'Ultimo invio: '+new Date(Meta.lastSent).toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : 'Non hai ancora inviato nulla';
+  if(isAdmin()) return `<div class="card sync"><div class="sync-t">Aggiornamenti dei colleghi<div class="muted small">Trascina qui la mail ricevuta oppure scegli il file</div></div><div class="sync-b"><button class="btn primary" data-action="import">Importa</button></div></div>`;
+  return `<div class="card sync"><div class="sync-t"><b>${n}</b>${n===1?'operazione da inviare':'operazioni da inviare'}<div class="muted small">${last}</div></div><div class="sync-b"><button class="btn primary" data-action="send">Invia aggiornamento</button></div></div>`;
+}
+function buildPayload(){
+  const { records, vehicles } = pendingChanges();
+  const vehicleIndex = {};
+  new Set(records.map(r=>r.vehicleId)).forEach(id=>{ const v=vById(id); if(v) vehicleIndex[id]={ plate:v.plate, model:v.model, fuel:v.fuel, assignee:v.assignee }; });
+  return { app:'parco-auto', v:1, from:Meta.name||'', exportedAt:Date.now(), vehicles, vehicleIndex, records: records.map(r=>({...r, by:r.by||Meta.name||''})) };
+}
+function markSent(ts){ Meta.lastSent=ts; saveMeta(); render(); }
+
+function sendSheet(){
+  const p = buildPayload(), n = p.records.length, nv = p.vehicles.length;
+  const html = `<form id="sf" novalidate>
+    <p style="margin-top:0">${n ? `Verranno inviate <b>${n}</b> ${n===1?'operazione':'operazioni'}${nv?` e ${nv} ${nv===1?'scheda veicolo':'schede veicolo'}`:''}, con foto e documenti allegati. Sono solo le novità dall’ultimo invio.` : 'Non ci sono novità da inviare dall’ultimo invio.'}</p>
+    <div class="fgrid">
+      ${fld('Il tuo nome','name', Meta.name, 'autocomplete="name" placeholder="es. Mario Rossi"', 'Compare nella mail, così la collega sa da chi arriva', 'full')}
+      ${fld('Email della collega (facoltativa)','to', Meta.to, 'inputmode="email" autocapitalize="none"', 'Serve solo se il telefono non apre il menu di condivisione', 'full')}
+    </div>
+    <div class="err" id="ferr" role="alert"></div>
+    <div class="actions">
+      <button class="btn primary" type="submit" ${n?'':'disabled'}>Invia con Mail o altra app</button>
+      <button class="btn" type="button" id="dlonly" ${n?'':'disabled'}>Scarica il file</button>
+      <span class="spacer"></span>
+      <button class="btn small" type="button" id="resend">Rimanda tutto</button>
+    </div>
+  </form>`;
+  openSheet('Invia aggiornamento', html, root=>{
+    $('#sf',root).addEventListener('submit', e=>{ e.preventDefault(); doSend('share', root); });
+    $('#dlonly',root).addEventListener('click', ()=>doSend('download', root));
+    $('#resend',root).addEventListener('click', ()=>{ Meta.lastSent=0; saveMeta(); sendSheet(); });
+  });
+}
+async function doSend(mode, root){
+  const form=$('#sf',root), err=$('#ferr',root);
+  Meta.name=(form.elements.name.value||'').trim(); Meta.to=(form.elements.to.value||'').trim(); saveMeta();
+  const p=buildPayload(), n=p.records.length;
+  if(!n && !p.vehicles.length){ err.textContent='Niente da inviare.'; return; }
+  const json=JSON.stringify(p);
+  if(json.length>20*1048576){ err.textContent='L’aggiornamento supera 20 MB e molte caselle lo rifiuterebbero. Invia più spesso.'; return; }
+  const fname=`parco-auto-aggiornamento-${todayStr()}.json`;
+  const file=new File([json], fname, {type:'application/json'});
+  const subject=`Parco auto: aggiornamento di ${Meta.name||'un collega'} (${n} ${n===1?'operazione':'operazioni'})`;
+  const text=`${subject}. Per importarlo apri la pagina Parco auto e trascina qui questa mail o il file allegato.`;
+  if(mode==='share' && navigator.canShare && navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file], title:subject, text}); markSent(p.exportedAt); closeSheet(); toast('Aggiornamento condiviso'); return; }
+    catch(e){ if(e && e.name==='AbortError') return; }
+  }
+  let saved=false;
+  if(Store.dl){ try{ await Store.dl.save({filename:fname, data:json}); saved=true; }catch(e){ if(e && e.code==='declined') return; } }
+  if(!saved){ try{ const a=document.createElement('a'); a.href=URL.createObjectURL(file); a.download=fname; document.body.appendChild(a); a.click(); a.remove(); }catch(e){ err.textContent='Non riesco a creare il file su questo dispositivo.'; return; } }
+  const mailto=`mailto:${encodeURIComponent(Meta.to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text+'\n\nAllega il file '+fname+' appena scaricato.')}`;
+  root.innerHTML = `<p style="margin-top:0">Il file <b>${esc(fname)}</b> è stato salvato. Ora allegalo a una mail${Meta.to?` per ${esc(Meta.to)}`:''}.</p>
+    <div class="actions"><a class="btn primary" href="${esc(mailto)}">Apri la mail</a><button class="btn" id="sentok">Ho inviato la mail</button></div>
+    <p class="hint">Premi «Ho inviato la mail» solo dopo l’invio: così la prossima volta partiranno solo le nuove operazioni.</p>`;
+  $('#sentok',root).addEventListener('click', ()=>{ markSent(p.exportedAt); closeSheet(); toast('Segnato come inviato'); });
+}
+
+/*EML-START*/
+function mimeSplit(raw){ const m=raw.match(/\r?\n\r?\n/); return m ? [raw.slice(0,m.index), raw.slice(m.index+m[0].length)] : [raw,'']; }
+function mimeHeaders(h){ const out={}; h.replace(/\r?\n[ \t]+/g,' ').split(/\r?\n/).forEach(l=>{ const i=l.indexOf(':'); if(i>0) out[l.slice(0,i).toLowerCase()]=l.slice(i+1).trim(); }); return out; }
+function decodePart(body, enc){
+  enc=(enc||'').toLowerCase();
+  if(enc==='base64'){
+    const bin=atob(body.replace(/[^A-Za-z0-9+/=]/g,'')); const bytes=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+    return new TextDecoder('utf-8').decode(bytes);
+  }
+  if(enc==='quoted-printable'){
+    const t=body.replace(/=\r?\n/g,''); const bytes=[];
+    for(let i=0;i<t.length;i++){ if(t[i]==='=' && /^[0-9A-Fa-f]{2}$/.test(t.substr(i+1,2))){ bytes.push(parseInt(t.substr(i+1,2),16)); i+=2; } else bytes.push(t.charCodeAt(i)&255); }
+    return new TextDecoder('utf-8').decode(Uint8Array.from(bytes));
+  }
+  return body;
+}
+function findPayloadInEml(raw){
+  const [h,b]=mimeSplit(raw); const hd=mimeHeaders(h); const ct=hd['content-type']||'';
+  const bm=ct.match(/boundary="?([^";]+)"?/i);
+  if(/multipart\//i.test(ct) && bm){
+    for(const part of b.split('--'+bm[1])){
+      const t=part.replace(/^\r?\n/,''); if(!t || t.startsWith('--')) continue;
+      const r=findPayloadInEml(t); if(r) return r;
+    }
+    return null;
+  }
+  if(/\.json|application\/json/i.test((hd['content-disposition']||'')+' '+ct)){
+    try{ const p=JSON.parse(decodePart(b, hd['content-transfer-encoding']).trim()); if(p && p.app==='parco-auto') return p; }catch(e){}
+  }
+  return null;
+}
+/*EML-END*/
+
+async function readImportFile(file){
+  const name=(file.name||'').toLowerCase(); let p;
+  if(name.endsWith('.eml') || file.type==='message/rfc822'){
+    p = findPayloadInEml(await file.text());
+    if(!p) throw new Error('Nella mail non ho trovato un aggiornamento del Parco auto');
+  } else if(name.endsWith('.msg')){
+    throw new Error('Formato .msg non leggibile: trascina l’allegato .json della mail');
+  } else {
+    try{ p = JSON.parse(await file.text()); }catch(e){ throw new Error('File non riconosciuto'); }
+  }
+  if(!p || p.app!=='parco-auto' || !Array.isArray(p.records)) throw new Error('Questo file non è un aggiornamento del Parco auto');
+  return p;
+}
+function importIndex(p){
+  const idx={}; Object.entries(p.vehicleIndex||{}).forEach(([id,v])=>{ idx[id]={...v}; });
+  (p.vehicles||[]).forEach(v=>{ idx[v.id]={...(idx[v.id]||{}),...v}; });
+  return idx;
+}
+async function handleImportFile(file){
+  if(!isAdmin()){ toast('L’importazione è riservata a chi gestisce il parco auto'); return; }
+  if(!Store.canWrite){ toast('Accesso in sola lettura'); return; }
+  if(!state.ready){ toast('Sto ancora caricando i dati, riprova tra un attimo'); return; }
+  try{ previewImport(await readImportFile(file)); }catch(e){ toast(e.message||'File non riconosciuto'); }
+}
+function previewImport(p){
+  const idx=importIndex(p);
+  const newPlates=Array.from(new Set(Object.values(idx).map(v=>normPlate(v.plate)).filter(pl=>pl && !state.vehicles.some(x=>x.plate===pl))));
+  const exist=new Map(state.records.map(r=>[r.id,r]));
+  let add=0, upd=0, same=0; const by={}; const toReadN=p.records.filter(r=>r.needsRead && r.amount==null).length;
+  p.records.forEach(r=>{
+    const ex=exist.get(r.id); if(ex && stamp(ex)>=stamp(r)){ same++; return; }
+    if(ex) upd++; else add++;
+    const b=by[r.kind]||(by[r.kind]={n:0,s:0}); b.n++; b.s+=r.amount||0;
+  });
+  const lines=Object.entries(by).map(([k,b])=>`<li>${esc(KIND_LABEL[k]||k)}: <b>${b.n}</b>${b.s?` (${eur(b.s)})`:''}</li>`).join('');
+  const when=new Date(p.exportedAt||Date.now()).toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric'});
+  const html=`<p style="margin-top:0">Aggiornamento ${p.from?`di <b>${esc(p.from)}</b> `:''}del ${esc(when)}.</p>
+    ${lines?`<ul>${lines}</ul>`:'<p class="muted">Nessuna operazione nuova.</p>'}
+    ${newPlates.length?`<p>Veicoli nuovi che verranno creati: ${newPlates.map(x=>plateHTML(x,true)).join(' ')}</p>`:''}
+    ${upd?`<p class="muted small">${upd} operazioni già presenti verranno aggiornate perché più recenti.</p>`:''}
+    ${same?`<p class="muted small">${same} operazioni già presenti: verranno ignorate.</p>`:''}
+    ${toReadN?`<p class="muted small">Leggerò i dati di ${toReadN} ${toReadN===1?'ricevuta':'ricevute'} (importo, litri, data): serve la connessione. Controlla poi i risultati.</p>`:''}
+    <div class="actions"><button class="btn primary" id="doimp" ${(add+upd+newPlates.length)?'':'disabled'}>Importa</button><button class="btn" data-action="close-sheet">Annulla</button></div>`;
+  openSheet('Importa aggiornamento', html, root=>{
+    $('#doimp',root).addEventListener('click', async e=>{
+      const b=e.currentTarget; b.disabled=true; b.textContent='Importo…';
+      try{ await applyImport(p); }catch(err){ toast('Importazione non riuscita'); b.disabled=false; b.textContent='Importa'; }
+    });
+  });
+}
+async function fileBlob(f){
+  if(f.blob) return f.blob;
+  if(f.url && f.url.startsWith('data:')) return dataUrlToBlob(f.url);
+  const r=await fetch(f.url); return await r.blob();
+}
+function applyFuelRead(rec,out){
+  if(!out || typeof out!=='object') return false;
+  const a=Number(out.amount); if(!(a>0)) return false;
+  rec.amount=a; if(Number(out.liters)>0) rec.liters=Number(out.liters);
+  if(out.fuel && FUELS.includes(out.fuel)) rec.fuel=out.fuel;
+  if(/^\d{4}-\d{2}-\d{2}$/.test(out.date||'')) rec.date=out.date;
+  if(out.supplier && !rec.supplier) rec.supplier=String(out.supplier);
+  if(out.km && !rec.km){ const k=parseInt(out.km,10); if(k>0) rec.km=k; }
+  rec.needsRead=false; return true;
+}
+function dataUrlToBlob(u){
+  const [h,b]=u.split(','); const mime=(h.match(/:(.*?);/)||[])[1]||'application/octet-stream';
+  const bin=atob(b); const arr=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
+  return new Blob([arr],{type:mime});
+}
+async function applyImport(p){
+  const idx=importIndex(p), full=new Set((p.vehicles||[]).map(v=>v.id));
+  const map={}, byPlate={}, lv={};
+  state.vehicles.forEach(v=>{ byPlate[v.plate]=v; lv[v.id]={...v}; });
+  let nv=0, add=0, upd=0; const need=[];
+  for(const [iid,v] of Object.entries(idx)){
+    const plate=normPlate(v.plate); if(!plate) continue;
+    let local=byPlate[plate];
+    if(!local){
+      const id=(lv[iid]) ? uid() : iid;
+      local={...v, id, plate};
+      await put('vehicles', local, {keep:true, batch:true}); byPlate[plate]=local; lv[id]=local; nv++;
+    } else if(full.has(iid) && stamp(v)>stamp(local)){
+      local={...local, ...v, id:local.id, plate, km:Math.max(local.km||0, v.km||0)||null};
+      await put('vehicles', local, {keep:true, batch:true}); byPlate[plate]=local; lv[local.id]=local;
+    }
+    map[iid]=local.id;
+  }
+  const exist=new Map(state.records.map(r=>[r.id,r])), kmUp=new Set();
+  for(const r of p.records){
+    const vid=map[r.vehicleId]; if(!vid) continue;
+    const ex=exist.get(r.id); if(ex && stamp(ex)>=stamp(r)) continue;
+    const rec={...r, vehicleId:vid, by:r.by||p.from||''};
+    await put('records', rec, {keep:true, batch:true});
+    if(ex) upd++; else add++;
+    if(rec.needsRead && rec.amount==null && (rec.files||[]).some(f=>(f.type||'').startsWith('image/'))) need.push(rec.id);
+    const v=lv[vid]; if(v && rec.km && rec.km>(v.km||0)){ v.km=rec.km; kmUp.add(vid); }
+  }
+  for(const id of kmUp){ await put('vehicles', lv[id], {keep:true, batch:true}); }
+  await persistLocal(); render(); closeSheet();
+  toast(`Importate ${add+upd} operazioni${nv?` e ${nv} ${nv===1?'veicolo':'veicoli'}`:''}`);
+  if(need.length) await readPendingReceipts(need);
+}
+async function readPendingReceipts(ids){
+  let ok=0;
+  for(let i=0;i<ids.length;i++){
+    const rec=state.records.find(r=>r.id===ids[i]); if(!rec) continue;
+    toast(`Leggo la ricevuta ${i+1} di ${ids.length}…`);
+    try{
+      const texts=[];
+      for(const f of (rec.files||[]).filter(f=>(f.type||'').startsWith('image/')).slice(0,2)) texts.push(await ocrText(await fileBlob(f)));
+      const upd={...rec};
+      if(applyFuelRead(upd, parseReceipt(texts.join('\n'),'fuel'))){ await put('records', upd, {keep:true}); ok++; }
+    }catch(e){ toast('Lettura non riuscita: serve la connessione'); return; }
+  }
+  toast(`Ricevute lette: ${ok} su ${ids.length}`);
+}
+const showDrop = on => { const d=$('#dropzone'); if(d) d.hidden=!on; };
+window.addEventListener('dragover', e=>{ if(e.dataTransfer && Array.from(e.dataTransfer.types||[]).includes('Files')){ e.preventDefault(); showDrop(isAdmin()); } });
+$('#dropzone').addEventListener('dragleave', ()=>showDrop(false));
+window.addEventListener('drop', e=>{ if(!(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length)) return; e.preventDefault(); showDrop(false); handleImportFile(e.dataTransfer.files[0]); });
+$('#impfile').addEventListener('change', e=>{ const f=e.target.files[0]; e.target.value=''; if(f) handleImportFile(f); });
+
+/*OCR-START*/
+function parseReceipt(text, kind){
+  const lines = String(text||'').split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  const all = lines.join('\n');
+  const num = s => { s=String(s).replace(/\s/g,''); if(/,\d{1,3}$/.test(s)) s=s.replace(/\./g,'').replace(',','.'); else s=s.replace(/,/g,''); const n=parseFloat(s); return isFinite(n)?n:null; };
+  const tokens = l => (l.match(/\d{1,3}(?:\.\d{3})+,\d{2,3}|\d+[.,]\d{2,3}/g)||[]).map(x=>({ d:(x.match(/[.,](\d+)$/)||[,''])[1].length, n:num(x) })).filter(x=>x.n!=null);
+  const out = { date:null, amount:null, liters:null, fuel:null, supplier:null, km:null, plate:null, invoiceNo:null, desc:null };
+
+  for(const m of all.matchAll(/(\d{2})[\/\-.](\d{2})[\/\-.](\d{4}|\d{2})(?!\d)/g)){
+    const y = m[3].length===2 ? '20'+m[3] : m[3];
+    const iso = parseDMY(m[1]+'/'+m[2]+'/'+y);
+    if(iso){ out.date=iso; break; }
+  }
+
+  const skip = /iva|imponibile|resto|sconto|prezzo|€\s*\/|eur\s*\/|\/\s*l/i;
+  let cand = [];
+  lines.filter(l=>/totale|da pagare|importo|pagato/i.test(l) && !/iva|imponibile|resto|sconto/i.test(l)).forEach(l=>tokens(l).filter(x=>x.d===2).forEach(x=>cand.push(x.n)));
+  if(!cand.length) lines.filter(l=>!skip.test(l)).forEach(l=>tokens(l).filter(x=>x.d===2).forEach(x=>cand.push(x.n)));
+  if(cand.length) out.amount = Math.max(...cand);
+
+  if(kind==='fuel'){
+    let price=null;
+    lines.filter(l=>/prezzo|€\s*\/|eur\s*\/|\/\s*l/i.test(l)).forEach(l=>tokens(l).forEach(x=>{ if(price==null && x.n>=0.8 && x.n<=3.5) price=x.n; }));
+    let lit=null;
+    lines.filter(l=>/litri|\blt\b|\bl\b|quantit|qta|volume|erogat/i.test(l)).forEach(l=>tokens(l).forEach(x=>{ if(lit==null && x.d>=2 && x.n>=3 && x.n<=150 && x.n!==out.amount && !(price && Math.abs(x.n-price)<0.0005)) lit=x.n; }));
+    if(lit==null && out.amount && price) lit = Math.round(out.amount/price*100)/100;
+    if(out.amount==null && lit && price) out.amount = Math.round(lit*price*100)/100;
+    out.liters = lit;
+    if(/gasolio|diesel/i.test(all)) out.fuel='Diesel';
+    else if(/benzina|senza\s*piombo|\bsp\s?9[58]\b|unleaded/i.test(all)) out.fuel='Benzina';
+    else if(/\bgpl\b/i.test(all)) out.fuel='GPL';
+    else if(/metano/i.test(all)) out.fuel='Metano';
+    else if(/elettric|kwh/i.test(all)) out.fuel='Elettrico';
+    const b = all.match(/\b(ENI|AGIP|Q8|IP|TAMOIL|ESSO|SHELL|API|ERG|TOTALERG|TOTAL|KUWAIT|REPSOL|BEYFIN|COSTANTIN|EUROPAM|SARAS)\b/i);
+    if(b) out.supplier = b[1].toUpperCase()==='IP' ? 'IP' : b[1].charAt(0).toUpperCase()+b[1].slice(1).toLowerCase();
+  } else {
+    const inv = all.match(/fattura\s*(?:n[°o.]*)?\s*[:.]?\s*([A-Z0-9][A-Z0-9\/\-]{1,})/i);
+    if(inv) out.invoiceNo = inv[1];
+    const sup = lines.slice(0,3).find(l=>/(autofficina|officina|carrozzeria|gommista|elettrauto|srl|s\.r\.l|snc|sas|spa)/i.test(l));
+    if(sup) out.supplier = sup.replace(/\s+/g,' ');
+  }
+  const pl = all.match(/\b([A-Z]{2})\s?(\d{3})\s?([A-Z]{2})\b/);
+  if(pl) out.plate = pl[1]+pl[2]+pl[3];
+  const km = all.match(/\bkm\.?\s*:?\s*(\d{3,6})\b/i);
+  if(km) out.km = parseInt(km[1],10);
+  return out;
+}
+/*OCR-END*/
+
+/* ---------- lettura ricevute nel browser (OCR) ---------- */
+let tessPromise=null;
+function loadTesseract(){
+  if(window.Tesseract) return Promise.resolve(window.Tesseract);
+  if(tessPromise) return tessPromise;
+  tessPromise = new Promise((res,rej)=>{
+    const sc=document.createElement('script');
+    sc.src='https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+    sc.onload=()=>window.Tesseract?res(window.Tesseract):rej(new Error('ocr'));
+    sc.onerror=()=>{ tessPromise=null; rej(new Error('ocr')); };
+    document.head.appendChild(sc);
+  });
+  return tessPromise;
+}
+async function ocrText(blob, onProgress){
+  const T = await loadTesseract();
+  const worker = await T.createWorker('ita', 1, { logger: m=>{ if(m && m.status==='recognizing text' && onProgress) onProgress(Math.round(m.progress*100)); } });
+  try{ const r = await worker.recognize(blob); return (r && r.data && r.data.text) || ''; }
+  finally{ try{ await worker.terminate(); }catch(e){} }
+}
+
+/* ---------- ruolo, PIN, copia dei dati ---------- */
+const pinHash = pin => {
+  const str='parco-auto:'+pin; let h1=0xdeadbeef, h2=0x41c6ce57;
+  for(let i=0;i<str.length;i++){ const ch=str.charCodeAt(i); h1=Math.imul(h1^ch,2654435761); h2=Math.imul(h2^ch,1597334677); }
+  h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);
+  h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);
+  return (4294967296*(2097151&h2)+(h1>>>0)).toString(16);
+};
+function roleHTML(){
+  return `<div class="card empty"><h2>Come userai questa app?</h2><p>Scegli il tuo ruolo. Potrai cambiarlo dal menu Dati.</p>
+    <div class="menu" style="text-align:left">
+      <button class="k-service" data-action="role" data-r="admin"><b>Amministratore</b><span>Gestisco il parco: vedo tutte le auto e importo gli aggiornamenti dei colleghi</span></button>
+      <button class="k-fuel" data-action="role" data-r="user"><b>Utente</b><span>Uso una sola auto e invio le mie operazioni all’amministratore</span></button>
+    </div>
+    <p style="margin-top:18px"><button class="btn small" data-action="restore-pick">Ripristina da una copia dei dati</button></p></div>`;
+}
+async function chooseRole(r){
+  closeSheet();
+  if(r==='admin' && Meta.pin && Meta.role!=='admin') await lockScreen();
+  Meta.role=r; await saveMeta(); render();
+  if(r==='admin' && !Meta.pin) pinOffer();
+}
+function pinOffer(){
+  openSheet('Proteggere con un PIN?', `<p style="margin-top:0">Il PIN impedisce a chi usa questo dispositivo di vedere i dati di tutte le auto. Puoi impostarlo anche più tardi dal menu Dati.</p>
+    <div class="actions"><button class="btn primary" data-action="pin">Imposta un PIN</button><button class="btn" data-action="close-sheet">Più tardi</button></div>`);
+}
+function roleChangeSheet(){
+  openSheet('Cambia ruolo', `<p style="margin-top:0">I dati restano su questo dispositivo. Ruolo attuale: <b>${isAdmin()?'amministratore':'utente'}</b>.</p>
+    <div class="menu"><button class="k-service" data-action="role" data-r="admin"><b>Amministratore</b><span>Vede tutte le auto e importa gli aggiornamenti</span></button>
+    <button class="k-fuel" data-action="role" data-r="user"><b>Utente</b><span>Vede solo la propria auto</span></button></div>`);
+}
+function pinSheet(){
+  const has=!!Meta.pin;
+  openSheet('PIN amministratore', `<form id="pf" novalidate>
+    <p style="margin-top:0">Il PIN blocca l’accesso quando apri la pagina. È un blocco semplice: non cifra i dati sul dispositivo.</p>
+    <div class="fgrid">
+      <label class="f full"><span>Nuovo PIN (da 4 a 8 cifre)</span><input type="password" name="pin" inputmode="numeric" maxlength="8" autocomplete="new-password"></label>
+      <label class="f full"><span>Ripeti il PIN</span><input type="password" name="pin2" inputmode="numeric" maxlength="8" autocomplete="new-password"></label>
+    </div>
+    <div class="err" id="ferr" role="alert"></div>
+    <div class="actions"><button class="btn primary" type="submit">Salva PIN</button><button class="btn" type="button" data-action="close-sheet">Annulla</button><span class="spacer"></span>${has?'<button class="btn danger small" type="button" id="pinrm">Rimuovi PIN</button>':''}</div></form>`, root=>{
+    const form=$('#pf',root), err=$('#ferr',root);
+    form.addEventListener('submit', async e=>{
+      e.preventDefault();
+      const a=form.elements.pin.value, b=form.elements.pin2.value;
+      if(!/^\d{4,8}$/.test(a)){ err.textContent='Il PIN deve avere da 4 a 8 cifre.'; return; }
+      if(a!==b){ err.textContent='I due PIN non coincidono.'; return; }
+      Meta.pin=pinHash(a); await saveMeta(); closeSheet(); toast('PIN impostato');
+    });
+    const rm=$('#pinrm',root); if(rm) rm.addEventListener('click', async ()=>{ Meta.pin=''; await saveMeta(); closeSheet(); toast('PIN rimosso'); });
+  });
+}
+function lockScreen(){
+  return new Promise(resolve=>{
+    const d=document.createElement('div'); d.className='lock';
+    d.innerHTML=`<form class="lockbox" novalidate><h2 style="font-size:32px">Parco auto</h2><p class="muted" style="margin:0">Inserisci il PIN amministratore</p>
+      <input type="password" inputmode="numeric" autocomplete="off" maxlength="8" id="lockpin" aria-label="PIN">
+      <div class="err" id="lockerr" role="alert"></div>
+      <button class="btn primary" type="submit">Sblocca</button>
+      <button class="btn small" type="button" id="lockforget">PIN dimenticato</button></form>`;
+    document.body.appendChild(d);
+    const inp=$('#lockpin',d); inp.focus();
+    $('form',d).addEventListener('submit', e=>{ e.preventDefault(); if(pinHash(inp.value)===Meta.pin){ d.remove(); resolve(); } else { $('#lockerr',d).textContent='PIN errato.'; inp.value=''; } });
+    $('#lockforget',d).addEventListener('click', e=>{
+      const b=e.currentTarget;
+      if(!b.dataset.armed){ b.dataset.armed='1'; b.classList.add('danger'); b.textContent='Cancella tutti i dati e ricomincia'; $('#lockerr',d).textContent='Senza il PIN i dati restano protetti. Se hai una copia dei dati, puoi cancellare tutto e poi ripristinarla.'; return; }
+      eraseAll();
+    });
+  });
+}
+async function eraseAll(){
+  await IDB.set('state',{vehicles:[],records:[]}); await IDB.set('meta',{});
+  try{ localStorage.removeItem('parco-state'); localStorage.removeItem('parco-meta'); }catch(e){}
+  location.reload();
+}
+function eraseAsk(btn){
+  if(!btn.dataset.armed){ btn.dataset.armed='1'; btn.classList.add('armed'); btn.textContent='Conferma: cancello tutto'; setTimeout(()=>{ btn.dataset.armed=''; btn.classList.remove('armed'); btn.textContent='Cancella tutti i dati'; },4000); return; }
+  eraseAll();
+}
+function dataSheet(){
+  const mine = !isAdmin() && Meta.myVehicle ? vById(Meta.myVehicle) : null;
+  const last = Meta.lastBackup ? fmtDate(new Date(Meta.lastBackup).toISOString().slice(0,10)) : 'mai';
+  openSheet('Dati e impostazioni', `
+    <div class="card" style="margin:0 0 12px"><h2 style="font-size:20px">Ruolo</h2>
+      <p style="margin:0 0 10px">${isAdmin()?'Amministratore: vedi tutte le auto e importi gli aggiornamenti dei colleghi.':`Utente${mine?` dell’auto ${esc(mine.plate)}`:''}: vedi solo la tua auto.`}</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small" data-action="role-change">Cambia ruolo</button>${isAdmin()?`<button class="btn small" data-action="pin">${Meta.pin?'Cambia o rimuovi PIN':'Imposta PIN'}</button>`:''}</div></div>
+    <div class="card" style="margin:0 0 12px"><h2 style="font-size:20px">Copia dei dati</h2>
+      <p class="muted small" style="margin:0 0 10px">I dati sono salvati su questo dispositivo: ${state.records.length} operazioni, ${state.vehicles.length} veicoli. Ultima copia: ${last}.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-action="backup">Scarica copia dei dati</button><button class="btn" data-action="restore-pick">Ripristina da copia</button></div></div>
+    <div class="card" style="margin:0"><h2 style="font-size:20px">Cancella</h2>
+      <p class="muted small" style="margin:0 0 10px">Elimina tutti i dati di questo dispositivo. Prima scarica una copia.</p>
+      <button class="btn danger" data-action="erase">Cancella tutti i dati</button></div>`);
+}
+async function backupNow(){
+  const payload={ app:'parco-auto', kind:'backup', v:1, exportedAt:Date.now(), from:Meta.name||'', vehicles:state.vehicles, vehicleIndex:{}, records:state.records,
+    meta:{ role:Meta.role, myVehicle:Meta.myVehicle, name:Meta.name, to:Meta.to, lastSent:Meta.lastSent, pin:Meta.pin } };
+  const json=JSON.stringify(payload), fname=`parco-auto-copia-${todayStr()}.json`;
+  const file=new File([json], fname, {type:'application/json'});
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    try{ await navigator.share({files:[file], title:'Copia dei dati Parco auto'}); Meta.lastBackup=Date.now(); await saveMeta(); render(); toast('Copia salvata'); return; }
+    catch(e){ if(e && e.name==='AbortError') return; }
+  }
+  try{ const a=document.createElement('a'); a.href=URL.createObjectURL(file); a.download=fname; document.body.appendChild(a); a.click(); a.remove(); Meta.lastBackup=Date.now(); await saveMeta(); render(); toast('Copia scaricata'); }
+  catch(e){ toast('Non riesco a creare il file su questo dispositivo'); }
+}
+async function restorePreview(file){
+  let p;
+  try{ p=JSON.parse(await file.text()); }catch(e){ toast('File non riconosciuto'); return; }
+  if(!p || p.app!=='parco-auto' || !Array.isArray(p.records) || !Array.isArray(p.vehicles)){ toast('Questa non è una copia dei dati del Parco auto'); return; }
+  const when = p.exportedAt ? fmtDate(new Date(p.exportedAt).toISOString().slice(0,10)) : '';
+  openSheet('Ripristina da copia', `<p style="margin-top:0">La copia${when?` del ${esc(when)}`:''} contiene <b>${p.records.length}</b> operazioni e <b>${p.vehicles.length}</b> veicoli.</p>
+    <p><b>I dati attuali di questo dispositivo verranno sostituiti.</b></p>
+    <div class="actions"><button class="btn primary" id="dorestore">Ripristina</button><button class="btn" data-action="close-sheet">Annulla</button></div>`, root=>{
+    $('#dorestore',root).addEventListener('click', async ()=>{
+      state.vehicles=p.vehicles; state.records=p.records;
+      if(p.kind==='backup' && p.meta){ const m=p.meta; ['role','myVehicle','name','to','lastSent','pin'].forEach(k=>{ if(m[k]!==undefined && m[k]!==null) Meta[k]=m[k]; }); }
+      Meta.lastBackup=Date.now();
+      await persistLocal(); await saveMeta(); closeSheet(); render(); toast('Dati ripristinati');
+    });
+  });
+}
+$('#restorefile').addEventListener('change', e=>{ const f=e.target.files[0]; e.target.value=''; if(f) restorePreview(f); });
+
+/* ---------- eventi ---------- */
+document.addEventListener('click', async e=>{
+  const t = e.target.closest('[data-action]'); if(!t) return;
+  const a = t.dataset.action;
+  if(a==='close-viewer'){ if(e.target.closest('a')) return; closeViewer(); return; }
+  if(a==='close-sheet'){ closeSheet(); return; }
+  if(a==='tab'){ ui.tab=t.dataset.tab; render(); window.scrollTo(0,0); return; }
+  if(a==='add-menu'){ addMenu(); return; }
+  if(a==='new'){ recordForm(t.dataset.k); return; }
+  if(a==='new-vehicle'){ if(!isAdmin()) return; vehicleForm(); return; }
+  if(a==='role'){ await chooseRole(t.dataset.r); return; }
+  if(a==='role-change'){ roleChangeSheet(); return; }
+  if(a==='data-menu'){ dataSheet(); return; }
+  if(a==='backup'){ backupNow(); return; }
+  if(a==='restore-pick'){ $('#restorefile').click(); return; }
+  if(a==='pin'){ pinSheet(); return; }
+  if(a==='erase'){ eraseAsk(t); return; }
+  if(a==='set-mine'){ vehicleForm({}, {mine:true}); return; }
+  if(a==='pick-mine'){ Meta.myVehicle=t.dataset.id; await saveMeta(); render(); return; }
+  if(a==='edit-vehicle'){ const v=vById(t.dataset.id); if(v) vehicleForm(v); return; }
+  if(a==='month'){ const m=+t.dataset.m; ui.month = ui.month===m?null:m; render(); return; }
+  if(a==='regkind'){ ui.regKind=t.dataset.k; render(); return; }
+  if(a==='export'){ exportCSV(); return; }
+  if(a==='send'){ if(!state.ready) return; sendSheet(); return; }
+  if(a==='import'){ if(!isAdmin()) return; $('#impfile').click(); return; }
+  if(a==='edit'){
+    if(e.target.closest('.acts')) return;
+    const r=state.records.find(x=>x.id===t.dataset.id); if(r) recordForm(r.kind, r); return;
+  }
+  if(a==='qstatus'){
+    const r=state.records.find(x=>x.id===t.dataset.id); if(!r||!Store.canWrite) return;
+    try{ await put('records',{...r,status:t.dataset.s}); toast('Stato aggiornato'); }catch(err){ toast('Aggiornamento non riuscito'); } return;
+  }
+  if(a==='convert'){
+    const r=state.records.find(x=>x.id===t.dataset.id); if(!r) return;
+    recordForm('service', { vehicleId:r.vehicleId, category:r.category, desc:r.desc, supplier:r.supplier, amount:r.kind==='quote'?r.amount:undefined, files:r.files||[], notes:r.notes, fromId:r.id, fromKind:r.kind }); return;
+  }
+});
+document.addEventListener('keydown', e=>{
+  if((e.key==='Enter'||e.key===' ') && e.target.matches('[data-action="edit"],[data-action="edit-vehicle"],[data-action="month"],[data-fv]')){ e.preventDefault(); e.target.click(); }
+});
+document.addEventListener('change', e=>{
+  const k = e.target.dataset && e.target.dataset.change; if(!k) return;
+  ui[k]=e.target.value; if(k==='year'||k==='vehicle') ui.month=null; render();
+});
+document.addEventListener('input', e=>{
+  if(e.target.id==='regq'){ ui.regQuery=e.target.value; const l=$('#reglist'); if(l) l.innerHTML=registroListHTML(); }
+});
+
+let wasMob = window.innerWidth < 600, resizeT;
+window.addEventListener('resize', ()=>{ clearTimeout(resizeT); resizeT=setTimeout(()=>{ const m=window.innerWidth<600; if(m!==wasMob){ wasMob=m; render(); } },200); });
+
+/* ---------- avvio ---------- */
+(async function start(){
+  const load = (async()=>{
+    const [m, saved] = await Promise.all([ IDB.get('meta'), IDB.get('state') ]);
+    return { m, saved };
+  })();
+  const apply = r => {
+    if(!r) return;
+    if(r.m) Object.assign(Meta, r.m);
+    if(r.saved){ state.vehicles=r.saved.vehicles||[]; state.records=r.saved.records||[]; }
+  };
+  const first = await Promise.race([ load, new Promise(r=>setTimeout(()=>r(null),3500)) ]);
+  apply(first);
+  try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); }catch(e){}
+  if(Meta.role==='admin' && Meta.pin){ try{ await lockScreen(); }catch(e){} }
+  state.ready=true;
+  render();
+  window.__parcoReady=true;
+  if(!first){
+    load.then(async r=>{
+      if(state.vehicles.length || state.records.length || Meta.role) return;
+      apply(r);
+      if(Meta.role==='admin' && Meta.pin){ try{ await lockScreen(); }catch(e){} }
+      render();
+    });
+  }
+})();
+})();
+</script>
+</body>
+</html>
