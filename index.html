@@ -168,8 +168,6 @@ td small{ display:block; color:var(--muted); font-size:13px; }
 .row .title{ font-weight:500; margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .row .meta{ display:flex; flex-wrap:wrap; gap:2px 12px; font-size:13.5px; color:var(--muted); margin-top:2px; }
 .row .amt{ font-family:'Barlow Condensed',sans-serif; font-size:22px; font-weight:700; white-space:nowrap; font-variant-numeric:tabular-nums; }
-.scan{ margin-top:12px; }
-.scan textarea{ min-height:74px; font-size:16px; }
 .row .thumb{ width:42px; height:42px; border-radius:6px; object-fit:cover; border:1px solid var(--line); flex:none; background:var(--soft); }
 .row .acts{ display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
 .row .pick{ width:22px; height:22px; flex:none; accent-color:var(--c, #0f5c5c); pointer-events:none; }
@@ -377,7 +375,7 @@ const Store = { mode:'local', canWrite:true, dl:null };
 const isAdmin = () => Meta.role==='admin';
 const V = () => (!isAdmin() && Meta.myVehicle) ? state.vehicles.filter(v=>v.id===Meta.myVehicle) : state.vehicles;
 const R = () => (!isAdmin() && Meta.myVehicle) ? state.records.filter(r=>r.vehicleId===Meta.myVehicle) : state.records;
-const ui = { tab:'costi', year:String(new Date().getFullYear()), vehicle:'', month:null, regKind:'all', regVehicle:'', regQuery:'', lastVehicle:'', sel:null };
+const ui = { tab:'costi', year:String(new Date().getFullYear()), vehicle:'', month:null, regKind:'all', regVehicle:'', regQuery:'', regUse:'', lastVehicle:'', sel:null };
 
 const IDB = {
   mem:{}, broken:false,
@@ -497,7 +495,6 @@ function openViewer(f){
   }
   root.innerHTML = `<div class="viewer" data-action="close-viewer">
     ${isImg ? `<img src="${esc(f.url)}" alt="${esc(f.name)}">` : `<div class="card" style="text-align:center"><h2>${esc(f.name)}</h2><p class="muted">Documento PDF</p></div>`}
-    ${isImg?'<p class="muted small" style="color:#cfd8e0;margin:0;text-align:center;max-width:420px">iPhone: tocca l’icona del testo in basso a destra sulla foto (o tieni premuto sul testo), scegli Seleziona tutto e Copia.</p>':''}
     <div class="bar"><a class="btn" href="${esc(linkHref)}" target="_blank" rel="noopener">Apri originale</a><button class="btn" data-action="close-viewer">Chiudi</button></div>
   </div>`;
 }
@@ -512,20 +509,24 @@ function yearsAvailable(){
   R().forEach(r=>{ if(r.date) s.add(r.date.slice(0,4)); });
   return Array.from(s).sort().reverse();
 }
-function costRecs(year, vid){ return R().filter(r=>isCost(r) && r.date && r.date.startsWith(year) && (!vid || r.vehicleId===vid)); }
+const isPrivate = r => r.kind==='fuel' && r.use==='privato';
+/* tutte le spese dell'anno (anche i rifornimenti privati: servono per consumi e km) */
+function costRecsAll(year, vid){ return R().filter(r=>isCost(r) && r.date && r.date.startsWith(year) && (!vid || r.vehicleId===vid)); }
+/* solo la spesa aziendale: i rifornimenti privati ne sono esclusi */
+function costRecs(year, vid){ return costRecsAll(year, vid).filter(r=>!isPrivate(r)); }
 function monthly(recs){
   const fuel=Array(12).fill(0), serv=Array(12).fill(0);
   recs.forEach(r=>{ const m=parseInt(r.date.slice(5,7),10)-1; if(m<0||m>11) return; (r.kind==='fuel'?fuel:serv)[m]+= (r.amount||0); });
   return {fuel,serv};
 }
 function vehicleStats(v, year){
-  const recs = costRecs(year, v.id);
+  const all = costRecsAll(year, v.id), recs = all.filter(r=>!isPrivate(r));
   const fuelCost = recs.filter(r=>r.kind==='fuel').reduce((a,r)=>a+(r.amount||0),0);
   const servCost = recs.filter(r=>r.kind==='service').reduce((a,r)=>a+(r.amount||0),0);
-  const fills = recs.filter(r=>r.kind==='fuel' && r.km && r.liters).sort((a,b)=>a.km-b.km);
+  const fills = all.filter(r=>r.kind==='fuel' && r.km && r.liters).sort((a,b)=>a.km-b.km);
   let l100=null;
   if(fills.length>=2){ const dist=fills[fills.length-1].km-fills[0].km; const lit=fills.slice(1).reduce((a,r)=>a+r.liters,0); if(dist>0) l100=lit/dist*100; }
-  const kms = recs.filter(r=>r.km).map(r=>r.km); let perKm=null;
+  const kms = all.filter(r=>r.km).map(r=>r.km); let perKm=null;
   if(kms.length>=2){ const dist=Math.max(...kms)-Math.min(...kms); if(dist>0) perKm=(fuelCost+servCost)/dist; }
   return {fuelCost, servCost, total:fuelCost+servCost, l100, perKm};
 }
@@ -604,6 +605,7 @@ function viewCosti(app){
   const avg = tot/months;
   const open = R().filter(r=>r.kind==='quote' && (r.status==='attesa'||r.status==='approvato') && (!ui.vehicle||r.vehicleId===ui.vehicle));
   const openSum = open.reduce((a,r)=>a+(r.amount||0),0);
+  const priv = costRecsAll(ui.year, ui.vehicle).filter(isPrivate), privSum = priv.reduce((a,r)=>a+(r.amount||0),0);
   const sel = ui.month;
   const readout = sel==null
     ? `<span>Anno ${esc(ui.year)}</span><span>Carburante <b>${eur(totF)}</b></span><span>Manutenzione <b>${eur(totS)}</b></span><span>Totale <b>${eur(tot)}</b></span>`
@@ -622,6 +624,7 @@ function viewCosti(app){
       <div class="kpi f"><div class="v">${eur0(totF)}</div><div class="l">Carburante${tot?` (${Math.round(totF/tot*100)}%)`:''}</div></div>
       <div class="kpi s"><div class="v">${eur0(totS)}</div><div class="l">Manutenzione${tot?` (${Math.round(totS/tot*100)}%)`:''}</div></div>
     </div>
+    ${priv.length?`<div class="notice">Rifornimenti privati nel ${esc(ui.year)}: ${priv.length} per un totale di ${eur(privSum)} (non inclusi nella spesa aziendale).</div>`:''}
     ${open.length?`<div class="notice">Preventivi aperti: ${open.length} per un totale di ${eur(openSum)} (non inclusi nella spesa).</div>`:''}
     <div class="card">
       <h2>Spesa mese per mese</h2>
@@ -701,7 +704,7 @@ function rowHTML(r, withActions, selMode){
     ${selMode?`<input type="checkbox" class="pick" tabindex="-1" aria-hidden="true" ${on?'checked':''}>`:''}
     ${img?`<img class="thumb" src="${esc(img.url)}" alt="">`:''}
     <div class="main">
-      <div class="t1"><span class="kind">${KIND_LABEL[r.kind]}</span>${plateHTML(vLabel(r.vehicleId),true)}${q?`<span class="st ${q[1]}">${q[0]}</span>`:''}${(r.kind==='fuel' && r.needsRead && r.amount==null)?'<span class="st warn">Da leggere</span>':''}${r.verify?'<span class="st warn">Da verificare</span>':''}</div>
+      <div class="t1"><span class="kind">${KIND_LABEL[r.kind]}</span>${plateHTML(vLabel(r.vehicleId),true)}${q?`<span class="st ${q[1]}">${q[0]}</span>`:''}${(r.kind==='fuel' && r.needsRead && r.amount==null)?'<span class="st warn">Da leggere</span>':''}${r.verify?'<span class="st warn">Da verificare</span>':''}${r.kind==='fuel'&&r.use==='privato'?'<span class="st">Privato</span>':''}</div>
       <div class="title">${esc(title)}</div>
       ${r.verify?`<div class="meta"><span>⚠ ${esc(r.verify)}</span></div>`:''}
       <div class="meta">${meta.join('')}</div>
@@ -715,6 +718,7 @@ function filteredRegistro(){
   return R().filter(r=>r.kind!=='todo')
     .filter(r=>ui.regKind==='all' || (ui.regKind==='verify' ? !!r.verify : r.kind===ui.regKind))
     .filter(r=>!ui.regVehicle || r.vehicleId===ui.regVehicle)
+    .filter(r=>!ui.regUse || (ui.regUse==='privato' ? isPrivate(r) : (r.kind==='fuel' && !isPrivate(r))))
     .filter(r=>!q || [r.desc,r.supplier,r.category,r.invoiceNo,r.notes,r.by,vLabel(r.vehicleId)].join(' ').toLowerCase().includes(q))
     .sort((a,b)=>(b.date||'').localeCompare(a.date||'') || (b.createdAt||0)-(a.createdAt||0));
 }
@@ -738,6 +742,7 @@ function viewRegistro(app){
     ${syncCardHTML()}<div class="chips">${chip('all','Tutto')}${chip('fuel','Rifornimenti')}${chip('service','Manutenzioni')}${chip('quote','Preventivi')}${R().some(r=>r.verify)?chip('verify',`Da verificare (${R().filter(r=>r.verify).length})`):''}</div>
     <div class="filters">
       <select data-change="regVehicle" aria-label="Veicolo"><option value="">${isAdmin()?'Tutti i veicoli':'La mia auto'}</option>${V().map(v=>`<option value="${v.id}" ${v.id===ui.regVehicle?'selected':''}>${esc(v.plate)}</option>`).join('')}</select>
+      <select data-change="regUse" aria-label="Uso del rifornimento"><option value="">Aziendali e privati</option><option value="aziendale" ${ui.regUse==='aziendale'?'selected':''}>Solo aziendali</option><option value="privato" ${ui.regUse==='privato'?'selected':''}>Solo privati</option></select>
       <input type="search" id="regq" placeholder="Cerca fornitore, descrizione, n. fattura" value="${esc(ui.regQuery)}" aria-label="Cerca">
       <button class="btn" data-action="export">Esporta CSV</button>
       ${isAdmin()?`<button class="btn" data-action="sel-toggle">${ui.sel?'Fine selezione':'Seleziona'}</button>`:''}
@@ -751,6 +756,8 @@ function selBarHTML(){
   const all = vis.length && vis.every(r=>ui.sel.has(r.id));
   return `<div class="selbar"><b>${n} ${n===1?'selezionata':'selezionate'}</b>
     <button class="btn small" data-action="sel-all">${all?'Deseleziona tutte':`Seleziona tutte (${vis.length})`}</button>
+    <button class="btn small" data-action="sel-use" data-u="privato" ${n?'':'disabled'}>Segna privati</button>
+    <button class="btn small" data-action="sel-use" data-u="aziendale" ${n?'':'disabled'}>Segna aziendali</button>
     <button class="btn danger small" data-action="sel-del" ${n?'':'disabled'}>Elimina selezionate</button>
     <button class="btn small" data-action="sel-toggle">Fine</button></div>`;
 }
@@ -864,6 +871,7 @@ function recordForm(kind, r={}){
     body += fld('Litri','liters', r.liters!=null?String(r.liters).replace('.',','):'', 'inputmode="decimal" placeholder="0,00"');
     body += `<div class="full muted small" id="ppl" style="margin-top:-4px"></div>`;
     body += sel('Carburante','fuel', FUELS, r.fuel || (veh&&veh.fuel) || 'Diesel');
+    body += sel('Uso del rifornimento','use', [['aziendale','Aziendale'],['privato','Privato']], r.use || 'aziendale');
     body += fld('Chilometri sul contakm','km', r.km||'', 'inputmode="numeric" placeholder="es. 84500"', veh&&veh.km?`Ultimo valore: ${nf(veh.km,0)} km`:'');
     body += fld('Distributore','supplier', r.supplier||'', '', '', 'full');
   } else {
@@ -891,13 +899,6 @@ function recordForm(kind, r={}){
       <input type="file" id="f-cam" accept="image/*" capture="environment" multiple hidden>
       <input type="file" id="f-file" accept="image/*,application/pdf" multiple hidden>
       <div class="thumbs" id="thumbs"></div>
-      ${kind!=='todo' ? `<div class="scan">
-        <label class="f full"><span>Oppure incolla o scansiona il testo dello scontrino</span>
-          <textarea id="scantext" rows="3" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="iPhone: tocca qui, poi “Scansiona testo”. Oppure incolla."></textarea></label>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px"><button type="button" class="btn small" id="pastetext">Incolla e leggi</button><button type="button" class="btn small" id="cleartext">Svuota</button></div>
-        <p class="hint" id="texthint">Il testo viene letto subito: compilo data, importo, litri e km.</p>
-        <p class="hint">Scontrino lungo? La fotocamera legge solo ciò che inquadra: scansiona a pezzi (ogni scansione si aggiunge in fondo). Oppure scatta la foto, aprila nell’app Foto, tocca l’icona del testo, scegli <b>Seleziona tutto</b> e <b>Copia</b>, poi qui <b>Incolla e leggi</b>.</p>
-      </div>`:''}
       <p class="hint" id="atthint">${kind==='fuel' ? 'Appena allegata la foto leggo data, importo e litri dallo scontrino: controlla sempre i valori. La prima volta serve la connessione.' : (kind!=='todo' ? 'Appena allegata la foto leggo data, importo e n. fattura: la data letta diventa la data della registrazione. Controlla sempre i valori. La prima volta serve la connessione.' : 'Puoi allegare più pagine.')}</p>
     </div>
     <div class="fgrid">${body}</div>
@@ -961,31 +962,6 @@ function recordForm(kind, r={}){
       hint.textContent = (out.check&&out.check.length) ? 'Dati letti, ma controlla bene: '+out.check.join('; ')+'.' : 'Dati letti dalla ricevuta (data compresa): controllali prima di salvare.';
       return true;
     };
-    /* testo scansionato con la fotocamera dell'iPhone ("Scansiona testo") o incollato: stessa lettura, senza OCR e senza connessione */
-    const scanBox = $('#scantext',root);
-    if(scanBox){
-      let st;
-      const readText = () => {
-        const t=scanBox.value.trim(), h=$('#texthint',root);
-        if(t.length<8){ h.textContent='Il testo viene letto subito: compilo data, importo, litri e km.'; return; }
-        const out=parseReceipt(t, kind==='fuel' ? 'fuel' : 'service');
-        applyOut(out, true, h);
-        /* testo incompleto (scontrino lungo, scansione parziale): dico cosa manca e come completarlo */
-        const miss=[]; if(!out.date) miss.push('data'); if(!out.amount) miss.push('importo'); if(kind==='fuel' && !out.liters) miss.push('litri');
-        if(miss.length) h.textContent='Testo incompleto, mancano: '+miss.join(', ')+'. Scansiona anche il resto (si aggiunge in fondo) o usa “Incolla e leggi” con il testo copiato dalla foto.';
-      };
-      scanBox.addEventListener('input', ()=>{ clearTimeout(st); st=setTimeout(readText,700); });
-      scanBox.addEventListener('paste', ()=>{ clearTimeout(st); st=setTimeout(readText,50); });
-      /* ogni nuova scansione deve accodarsi in fondo, non sostituire né finire in mezzo */
-      scanBox.addEventListener('focus', ()=>{ if(scanBox.value && !/\n$/.test(scanBox.value)) scanBox.value+='\n'; setTimeout(()=>{ try{ scanBox.setSelectionRange(scanBox.value.length, scanBox.value.length); }catch(e){} },0); });
-      const pb=$('#pastetext',root), cb=$('#cleartext',root);
-      if(pb) pb.addEventListener('click', async ()=>{
-        const h=$('#texthint',root);
-        try{ const t = await navigator.clipboard.readText(); if(!t || !t.trim()){ h.textContent='Gli appunti sono vuoti: copia prima il testo dalla foto.'; return; } scanBox.value=t; readText(); }
-        catch(e){ scanBox.focus(); h.textContent='Il browser non permette l’incolla automatica: tieni premuto nel campo e scegli Incolla.'; }
-      });
-      if(cb) cb.addEventListener('click', ()=>{ scanBox.value=''; $('#texthint',root).textContent='Il testo viene letto subito: compilo data, importo, litri e km.'; });
-    }
     const runOCR = async auto => {
       const imgFiles = files.filter(f=>(f.type||'').startsWith('image/')).slice(0,2);
       if(!imgFiles.length) return;
@@ -994,7 +970,7 @@ function recordForm(kind, r={}){
       try{
         const texts=[];
         for(const f of imgFiles){
-          hint.textContent='Leggo la ricevuta… (la prima volta serve la connessione e qualche secondo)';
+          hint.textContent='Leggo la ricevuta… (la prima volta scarica il lettore, circa 16 MB: serve la connessione)';
           const r = await ocrReceipt(await fileBlob(f), pct=>{ hint.textContent=`Leggo la ricevuta… ${pct}%`; });
           texts.push(r.text);
           if(r.rot){ await turnFile(f,r.rot); renderThumbs(); }
@@ -1023,7 +999,7 @@ function recordForm(kind, r={}){
         const a=parseNum(fd.amount);
         const hasImg=files.some(f=>(f.type||'').startsWith('image/'));
         if((a==null||a<=0) && !hasImg){ err.textContent='Indica l’importo totale.'; return; }
-        rec.amount = a>0 ? a : null; rec.needsRead = !(a>0); rec.liters=parseNum(fd.liters); rec.fuel=fd.fuel; rec.km=parseKm(fd.km); rec.supplier=(fd.supplier||'').trim();
+        rec.amount = a>0 ? a : null; rec.needsRead = !(a>0); rec.liters=parseNum(fd.liters); rec.fuel=fd.fuel; rec.use=fd.use==='privato'?'privato':'aziendale'; rec.km=parseKm(fd.km); rec.supplier=(fd.supplier||'').trim();
       } else {
         rec.category=fd.category; rec.desc=(fd.desc||'').trim();
         if(kind==='service'||kind==='quote'){ const a=parseNum(fd.amount); if(a==null||a<0){ err.textContent='Indica l’importo.'; return; } rec.amount=a; rec.supplier=(fd.supplier||'').trim(); }
@@ -1126,8 +1102,8 @@ function vehicleForm(v={}, opts={}){
 async function exportCSV(){
   const rows = filteredRegistro();
   const q = v => { v = v==null?'':String(v); return /[;"\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v; };
-  const head = ['Data','Tipo','Targa','Categoria','Descrizione','Fornitore','N. documento','Km','Litri','Importo','Stato','Allegati','Inserito da'];
-  const lines = [head.join(';')].concat(rows.map(r=>[fmtDate(r.date),KIND_LABEL[r.kind],vLabel(r.vehicleId),r.category||'',r.desc||'',r.supplier||'',r.invoiceNo||'',r.km||'',r.liters!=null?String(r.liters).replace('.',','):'',r.amount!=null?String(r.amount).replace('.',','):'',r.kind==='quote'?(QSTATUS[r.status||'attesa'][0]):'',(r.files||[]).length,r.by||''].map(q).join(';')));
+  const head = ['Data','Tipo','Targa','Categoria','Descrizione','Fornitore','N. documento','Km','Litri','Importo','Uso','Stato','Allegati','Inserito da'];
+  const lines = [head.join(';')].concat(rows.map(r=>[fmtDate(r.date),KIND_LABEL[r.kind],vLabel(r.vehicleId),r.category||'',r.desc||'',r.supplier||'',r.invoiceNo||'',r.km||'',r.liters!=null?String(r.liters).replace('.',','):'',r.amount!=null?String(r.amount).replace('.',','):'',r.kind==='fuel'?(isPrivate(r)?'Privato':'Aziendale'):'',r.kind==='quote'?(QSTATUS[r.status||'attesa'][0]):'',(r.files||[]).length,r.by||''].map(q).join(';')));
   const data = '\ufeff'+lines.join('\r\n');
   const filename = `parco-auto-${todayStr()}.csv`;
   if(Store.dl){ try{ await Store.dl.save({filename, data}); toast('File pronto'); return; }catch(e){ if(e && e.code==='declined') return; } }
@@ -1479,11 +1455,15 @@ function parseReceipt(text, kind){
   const num = s => { s=String(s).replace(/\s/g,'').replace(/:/g,','); if(/,\d{1,3}$/.test(s)) s=s.replace(/\./g,'').replace(',','.'); else s=s.replace(/,/g,''); const n=parseFloat(s); return isFinite(n)?n:null; };
   const tokens = l => (l.match(/\d{1,3}(?:\.\d{3})+,\d{2,3}|\d+[.,:]\d{1,3}/g)||[]).map(x=>({ d:(x.match(/[.,:](\d+)$/)||[,''])[1].length, n:num(x) })).filter(x=>x.n!=null);
   /* sulle righe del totale ammetto anche "45 50" (virgola persa) e "45,5" (zero perso) */
-  const totTokens = l => { let t=tokens(l); if(!t.length){ const m=l.match(/(\d{1,4})\s(\d{2})(?!\d)/); if(m) t=[{d:2,n:parseFloat(m[1]+'.'+m[2])}]; } return t.map(x=>x.d===1?{d:2,n:x.n}:x); };
+  const totTokens = l => { let t=tokens(l); if(!t.length){ const m=l.match(/(\d{1,4})\s(\d{2})(?!\d)/); if(m) t=[{d:2,n:parseFloat(m[1]+'.'+m[2])}]; }
+    /* alcuni OCR perdono spazi e virgola: "IMPORTOFUR8013" = 80,13 */
+    if(!t.length){ const m=l.match(/(?:import[o0]|totale|gesamt\w*|summe|betrag)\D{0,6}(\d{3,6})\s*$/i); if(m) t=[{d:2,n:parseInt(m[1],10)/100}]; }
+    return t.map(x=>x.d===1?{d:2,n:x.n}:x); };
   const out = { date:null, amount:null, liters:null, fuel:null, supplier:null, km:null, plate:null, invoiceNo:null, desc:null, check:[] };
 
   const now=new Date(), ty=now.getFullYear(), todayISO=ty+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
-  for(const m of all.matchAll(/(\d{2})[\/\-.](\d{2})[\/\-.](\d{4}|\d{2})(?!\d)/g)){
+  for(const m0 of all.matchAll(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](20\d\s{0,2}\d|\d{2}(?!\d))/g)){
+    const m=[m0[0], m0[1].padStart(2,'0'), m0[2].padStart(2,'0'), m0[3].replace(/\s/g,'')];
     const y = m[3].length===2 ? 2000+(+m[3]) : +m[3];
     /* anno impossibile (l'OCR legge 2026 come 2008, 2068 o 2676): tengo giorno e mese e uso l'anno corrente, o il precedente se la data sarebbe futura.
        Lo correggo PRIMA di controllare la data, altrimenti un anno fuori scala la farebbe scartare. */
@@ -1499,7 +1479,7 @@ function parseReceipt(text, kind){
   let cand = [];
   const noTot = /\biva\b|imponibile|resto|sconto|prezzo|preis|\bmwst|€\s*\/|eur\s*\/|\/\s*l\b/i;
   /* prima le righe "totale / da pagare / importo", poi quelle "pagato / contanti" (può essere più del totale) */
-  lines.filter(l=>/totale|da pagare|importo|gesamt|summe|betrag/i.test(l) && !noTot.test(l)).forEach(l=>totTokens(l).filter(x=>x.d===2).forEach(x=>cand.push(x.n)));
+  lines.filter(l=>/totale|da pagare|import[o0]|gesamt|summe|betrag/i.test(l) && !noTot.test(l)).forEach(l=>totTokens(l).filter(x=>x.d===2).forEach(x=>cand.push(x.n)));
   if(!cand.length) lines.filter(l=>/pagato|pagamento|carta|bancomat|pos\b/i.test(l) && !noTot.test(l)).forEach(l=>totTokens(l).filter(x=>x.d===2).forEach(x=>cand.push(x.n)));
   /* ultima possibilità: qualsiasi cifra con due decimali, ma non quelle delle righe dei litri o del prezzo */
   /* (tolgo date e orari: "20:52" o "06.11" non sono importi) */
@@ -1627,7 +1607,7 @@ function flattenCanvas(c){
 const canvasBlob = (c,type,q) => new Promise(r=>c.toBlob(r,type,q));
 const ocrScore = t => (String(t).match(/importo|totale|litri|volume|prezzo|\bdata\b|\beur\b|€|diesel|gasolio|benzina|erogat|quantit|ricevuta|acquisto|\bkm\b|pompa|prodotto|gesamt|menge|datum/gi)||[]).length + (/\d{2}[\/.-]\d{2}[\/.-]\d{2,4}/.test(t)?2:0);
 /* Legge una foto: se il testo non ha senso la prova ruotata di 90°, 270° e 180° (scontrini fotografati di traverso o capovolti) e tiene la migliore. */
-async function ocrReceipt(blob, onProgress){
+async function ocrReceiptTesseract(blob, onProgress){
   const T = await loadTesseract();
   const logger = m=>{ if(m && m.status==='recognizing text' && onProgress) onProgress(Math.round(m.progress*100)); };
   /* italiano + tedesco (scontrini austriaci/tedeschi); se il tedesco non si scarica uso solo l'italiano */
@@ -1642,6 +1622,75 @@ async function ocrReceipt(blob, onProgress){
     }
     return best;
   } finally { try{ await worker.terminate(); }catch(e){} }
+}
+/* ---------- PaddleOCR (PP-OCRv4) con ONNX Runtime: motore principale, molto più preciso di Tesseract sulle foto di scontrini ---------- */
+let paddlePromise=null;
+function loadPaddle(){
+  if(paddlePromise) return paddlePromise;
+  paddlePromise = (async()=>{
+    if(!window.ort) await new Promise((res,rej)=>{ const sc=document.createElement('script'); sc.src='https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/ort.min.js'; sc.onload=res; sc.onerror=()=>rej(new Error('ort')); document.head.appendChild(sc); });
+    ort.env.wasm.numThreads=1; ort.env.wasm.wasmPaths='https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/';
+    const base='https://cdn.jsdelivr.net/npm/@gutenye/ocr-models@1.4.2/assets/', opt={executionProviders:['wasm']};
+    const [det,rec,dict]=await Promise.all([ ort.InferenceSession.create(base+'ch_PP-OCRv4_det_infer.onnx',opt), ort.InferenceSession.create(base+'ch_PP-OCRv4_rec_infer.onnx',opt), fetch(base+'ppocr_keys_v1.txt').then(r=>{ if(!r.ok) throw new Error('dict'); return r.text(); }) ]);
+    return { det, rec, dict:['blank',...dict.split('\n').filter((l,i,a)=>!(i===a.length-1 && l==='')),' '] };
+  })();
+  paddlePromise.catch(()=>{ paddlePromise=null; });   /* se fallisce, al prossimo tentativo riprova */
+  return paddlePromise;
+}
+const pdCanvas=(w,h)=>{ const c=document.createElement('canvas'); c.width=w; c.height=h; return c; };
+/* legge il testo di una foto: 1) trova le righe di testo (DBNet), 2) legge ogni riga (CRNN + CTC) */
+async function paddleRead(P, canvas, onLine){
+  const lim=960, thr=0.3, sc=Math.min(1,lim/Math.max(canvas.width,canvas.height));
+  const dw=Math.max(32,Math.round(canvas.width*sc/32)*32), dh=Math.max(32,Math.round(canvas.height*sc/32)*32);
+  const dc=pdCanvas(dw,dh); dc.getContext('2d').drawImage(canvas,0,0,dw,dh);
+  const d=dc.getContext('2d').getImageData(0,0,dw,dh).data, N=dw*dh, inp=new Float32Array(3*N), mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225];
+  for(let i=0;i<N;i++){ const r=d[i*4]/255, g=d[i*4+1]/255, b=d[i*4+2]/255; inp[i]=(b-mean[0])/std[0]; inp[N+i]=(g-mean[1])/std[1]; inp[2*N+i]=(r-mean[2])/std[2]; }
+  const o1=await P.det.run({x:new ort.Tensor('float32',inp,[1,3,dh,dw])}), prob=o1[Object.keys(o1)[0]].data;
+  /* zone di testo = componenti connesse della mappa di probabilità, allargate un po' (unclip) */
+  const lab=new Int32Array(N), boxes=[], stack=[]; let cur=0;
+  for(let s0=0;s0<N;s0++){
+    if(prob[s0]<=thr || lab[s0]) continue;
+    cur++; let x0=1e9,y0=1e9,x1=-1,y1=-1,sum=0,cnt=0; stack.push(s0); lab[s0]=cur;
+    while(stack.length){
+      const q0=stack.pop(), py=(q0/dw)|0, px=q0-py*dw; sum+=prob[q0]; cnt++;
+      if(px<x0)x0=px; if(px>x1)x1=px; if(py<y0)y0=py; if(py>y1)y1=py;
+      for(let k=0;k<4;k++){ const nx=px+(k===0?1:k===1?-1:0), ny=py+(k===2?1:k===3?-1:0); if(nx<0||ny<0||nx>=dw||ny>=dh) continue; const q=ny*dw+nx; if(prob[q]>thr && !lab[q]){ lab[q]=cur; stack.push(q); } }
+    }
+    const w=x1-x0+1, h=y1-y0+1; if(cnt<40 || Math.min(w,h)<4 || sum/cnt<0.5) continue;
+    const dd=(w*h*1.6)/(2*(w+h)); boxes.push({x:Math.max(0,x0-dd), y:Math.max(0,y0-dd), w:Math.min(dw,w+2*dd), h:Math.min(dh,h+2*dd)});
+  }
+  boxes.sort((a,b)=>a.y-b.y||a.x-b.x);
+  const fx=canvas.width/dw, fy=canvas.height/dh, items=[];
+  for(let bi=0; bi<boxes.length; bi++){
+    const b=boxes[bi], sx=b.x*fx, sy=b.y*fy, sw=b.w*fx, sh=b.h*fy; if(sh<6 || sw<6) continue;
+    const H=48, W=Math.min(1280,Math.max(16,Math.round(H*sw/sh/8)*8)), rc=pdCanvas(W,H), rx=rc.getContext('2d');
+    rx.fillStyle='#fff'; rx.fillRect(0,0,W,H); rx.drawImage(canvas,sx,sy,sw,sh,0,0,W,H);
+    const rd=rx.getImageData(0,0,W,H).data, M=W*H, ri=new Float32Array(3*M);
+    for(let i=0;i<M;i++){ ri[i]=(rd[i*4+2]/255-.5)/.5; ri[M+i]=(rd[i*4+1]/255-.5)/.5; ri[2*M+i]=(rd[i*4]/255-.5)/.5; }
+    const o2=await P.rec.run({x:new ort.Tensor('float32',ri,[1,3,H,W])}), o=o2[Object.keys(o2)[0]], T=o.dims[1], C=o.dims[2], od=o.data;
+    let txt='', prev=0;
+    for(let t=0;t<T;t++){ let best=0, bv=-1e9; for(let c=0;c<C;c++){ const v=od[t*C+c]; if(v>bv){ bv=v; best=c; } } if(best!==0 && best!==prev) txt+=P.dict[best]||''; prev=best; }
+    items.push({text:txt, x:b.x, y:b.y, h:b.h});
+    if(onLine) onLine(Math.round(100*(bi+1)/boxes.length));
+  }
+  /* i riquadri sulla stessa riga (stesso centro verticale) vanno uniti da sinistra a destra */
+  items.sort((a,b)=>(a.y+a.h/2)-(b.y+b.h/2)); const rows=[];
+  for(const it of items){ const cy=it.y+it.h/2, r=rows.find(r=>Math.abs(r.cy-cy)<0.5*Math.min(r.h,it.h)); if(r){ r.items.push(it); r.cy=(r.cy+cy)/2; } else rows.push({cy, h:it.h, items:[it]}); }
+  return rows.map(r=>r.items.sort((a,b)=>a.x-b.x).map(i=>i.text).join('  ')).join('\n');
+}
+async function ocrReceiptPaddle(blob, onProgress){
+  const P=await loadPaddle(), bm=await loadBitmap(blob); let best=null;
+  for(const rot of [0,90,270,180]){
+    const text=await paddleRead(P, receiptCanvas(bm,rot,1600), onProgress), sc=ocrScore(text);
+    if(!best || sc>best.sc+2) best={rot,sc,text};
+    if((rot===0 && sc>=5) || sc>=6) break;
+  }
+  return best;
+}
+/* motore principale PaddleOCR; se non si carica (niente rete, browser vecchio) o non legge nulla, si ripiega su Tesseract */
+async function ocrReceipt(blob, onProgress){
+  try{ const r=await ocrReceiptPaddle(blob, onProgress); if(r && r.sc>=2) return r; }catch(e){}
+  return await ocrReceiptTesseract(blob, onProgress);
 }
 /* Se la foto era girata, riscrive anche l'allegato nel verso giusto, così lo si legge anche aprendolo. */
 async function turnFile(f, rot){
@@ -1785,7 +1834,7 @@ $('#restorefile').addEventListener('change', e=>{ const f=e.target.files[0]; e.t
 document.addEventListener('click', async e=>{
   const t = e.target.closest('[data-action]'); if(!t) return;
   const a = t.dataset.action;
-  if(a==='close-viewer'){ if(e.target.closest('a') || e.target.tagName==='IMG') return; closeViewer(); return; }   /* un tocco sulla foto non la chiude: serve per selezionare il testo */
+  if(a==='close-viewer'){ if(e.target.closest('a')) return; closeViewer(); return; }
   if(a==='close-sheet'){ closeSheet(); return; }
   if(a==='reread'){ if(isAdmin()) await readPendingReceipts(pendingReads().map(r=>r.id)); return; }
   if(a==='autosave-setup'){ if(isAdmin()){ await Auto.setup(); if($('.sheet')) dataSheet(); } return; }
@@ -1793,6 +1842,13 @@ document.addEventListener('click', async e=>{
   if(a==='autosave-off'){ await Auto.off(); if($('.sheet')) dataSheet(); return; }
   if(a==='sel-toggle'){ if(!isAdmin()) return; ui.sel = ui.sel ? null : new Set(); render(); return; }
   if(a==='pick'){ if(!ui.sel) return; const id=t.dataset.id; ui.sel.has(id)?ui.sel.delete(id):ui.sel.add(id); refreshSel(); return; }
+  if(a==='sel-use'){
+    if(!isAdmin() || !ui.sel) return;
+    const ids=new Set(filteredRegistro().filter(r=>ui.sel.has(r.id) && r.kind==='fuel').map(r=>r.id)); if(!ids.size){ toast('Seleziona dei rifornimenti'); return; }
+    const u=t.dataset.u==='privato'?'privato':'aziendale', now=Date.now();
+    state.records=state.records.map(r=>ids.has(r.id)?{...r, use:u, updatedAt:now}:r);
+    await persistLocal(); render(); toast(`${ids.size} ${ids.size===1?'rifornimento segnato':'rifornimenti segnati'} come ${u==='privato'?'privati':'aziendali'}`); return;
+  }
   if(a==='sel-all'){
     if(!ui.sel) return; const vis=filteredRegistro();
     if(vis.every(r=>ui.sel.has(r.id))) vis.forEach(r=>ui.sel.delete(r.id)); else vis.forEach(r=>ui.sel.add(r.id));
