@@ -873,6 +873,7 @@ function recordForm(kind, r={}){
     body += sel('Carburante','fuel', FUELS, r.fuel || (veh&&veh.fuel) || 'Diesel');
     body += sel('Uso del rifornimento','use', [['aziendale','Aziendale'],['privato','Privato']], r.use || 'aziendale');
     body += fld('Chilometri sul contakm','km', r.km||'', 'inputmode="numeric" placeholder="es. 84500"', veh&&veh.km?`Ultimo valore: ${nf(veh.km,0)} km`:'');
+    body += `<div class="full small" id="kmwarn" style="color:var(--warn);margin-top:-6px"></div>`;
     body += fld('Distributore','supplier', r.supplier||'', '', '', 'full');
   } else {
     body += sel('Categoria','category', CATS, r.category||'Tagliando');
@@ -880,7 +881,7 @@ function recordForm(kind, r={}){
     body += fld('Descrizione lavori','desc', r.desc||'', 'placeholder="es. Cambio olio e filtri"', '', 'full');
     if(kind==='service'||kind==='quote') body += fld('Officina o fornitore','supplier', r.supplier||'', '');
     if(kind==='service') body += fld('N. fattura','invoiceNo', r.invoiceNo||'', '');
-    if(kind==='service') body += fld('Chilometri','km', r.km||'', 'inputmode="numeric"', veh&&veh.km?`Ultimo valore: ${nf(veh.km,0)} km`:'');
+    if(kind==='service') body += fld('Chilometri','km', r.km||'', 'inputmode="numeric"', veh&&veh.km?`Ultimo valore: ${nf(veh.km,0)} km`:'') + `<div class="full small" id="kmwarn" style="color:var(--warn);margin-top:-6px"></div>`;
     if(kind==='service' && veh && (veh.plan||[]).length) body += sel('Intervento del piano (aggiorna gli avvisi)','planItem', veh.plan.map(p=>[p.name,p.name]), r.planItem||'', 'full', true);
     if(kind==='quote') body += sel('Stato','status', [['attesa','In attesa'],['approvato','Approvato'],['rifiutato','Rifiutato'],['eseguito','Eseguito']], r.status||'attesa');
     if(kind==='todo'){ body += dfld('Da fare entro il','dueDate', r.dueDate||''); body += fld('Oppure entro km','dueKm', r.dueKm||'', 'inputmode="numeric"'); }
@@ -950,6 +951,18 @@ function recordForm(kind, r={}){
       el.value = typeof v==='number' ? String(v).replace('.',',') : String(v);
       flash(el);
     };
+    /* avviso immediato se i km non tornano con le altre registrazioni dello stesso veicolo */
+    const kmw = $('#kmwarn',root);
+    const updateKmWarn = () => {
+      if(!kmw || !form.elements.km) return; kmw.textContent='';
+      const km=parseKm(form.elements.km.value), date=form.elements.date&&form.elements.date.value, vid=form.elements.vehicleId&&form.elements.vehicleId.value;
+      if(!km||!date||!vid) return;
+      const id=r.id||'__nuova__', m=kmIssues(vid,{id,kind,vehicleId:vid,date,km}).get(id);
+      if(m) kmw.textContent='⚠ '+m;
+    };
+    form.addEventListener('input',updateKmWarn); form.addEventListener('change',updateKmWarn); updateKmWarn();
+    /* se la data dello scontrino non è stata letta e resta quella di oggi, a salvataggio segno "Da verificare" */
+    let ocrNoDate=false, ocrDate='';
     /* riempie il modulo con i valori letti (da foto o da testo scansionato) */
     const applyOut = (out, over, hint) => {
       const found = out && (out.amount || out.liters || out.date || out.plate || out.invoiceNo);
@@ -958,7 +971,8 @@ function recordForm(kind, r={}){
       setv('amount',out.amount,over); setv('liters',out.liters,over); setv('supplier',out.supplier,over); setv('invoiceNo',out.invoiceNo,over); setv('km',out.km,over);
       if(out.fuel && FUELS.includes(out.fuel)) setv('fuel',out.fuel);
       if(out.plate){ const pv=state.vehicles.find(x=>x.plate===normPlate(out.plate)); if(pv && (over || !form.elements.vehicleId.value)) form.elements.vehicleId.value=pv.id; }
-      updatePpl();
+      updatePpl(); updateKmWarn();
+      ocrNoDate = !out.date; ocrDate = form.elements.date ? form.elements.date.value : '';
       hint.textContent = (out.check&&out.check.length) ? 'Dati letti, ma controlla bene: '+out.check.join('; ')+'.' : 'Dati letti dalla ricevuta (data compresa): controllali prima di salvare.';
       return true;
     };
@@ -1006,6 +1020,10 @@ function recordForm(kind, r={}){
         if(kind==='service'){ rec.invoiceNo=(fd.invoiceNo||'').trim(); rec.km=parseKm(fd.km); rec.planItem=fd.planItem||''; }
         if(kind==='quote') rec.status=fd.status;
         if(kind==='todo'){ rec.dueDate=fd.dueDate||''; rec.dueKm=parseKm(fd.dueKm); rec.status='aperto'; }
+      }
+      if(!fd.verified && kind!=='todo'){
+        if(rec.km && (kind==='fuel'||kind==='service')){ const m=kmIssues(rec.vehicleId,rec).get(rec.id); if(m) rec.verify=addVerify(rec.verify,m); }
+        if(ocrNoDate && fd.date===ocrDate) rec.verify=addVerify(rec.verify,'Data dello scontrino non letta: è rimasta la data '+fmtDate(fd.date)+', da controllare.');
       }
       const btn=$('button[type=submit]',form); btn.disabled=true; btn.textContent='Salvo…';
       try{
@@ -1372,20 +1390,59 @@ async function applyImport(p){
     }
     map[iid]=local.id;
   }
-  const exist=new Map(state.records.map(r=>[r.id,r])), kmUp=new Set();
+  const exist=new Map(state.records.map(r=>[r.id,r])), kmUp=new Set(), imported=[];
   for(const r of p.records){
     const vid=map[r.vehicleId]; if(!vid) continue;
     const ex=exist.get(r.id); if(ex && stamp(ex)>=stamp(r)) continue;
     const rec={...r, vehicleId:vid, by:r.by||p.from||''};
     await put('records', rec, {keep:true, batch:true});
     if(ex) upd++; else add++;
+    imported.push(rec);
     if(rec.kind==='fuel' && hasImg(rec) && ((rec.needsRead && rec.amount==null) || (rec.amount!=null && badYear(rec)))) need.push(rec.id);
     const v=lv[vid]; if(v && rec.km && rec.km>(v.km||0)){ v.km=rec.km; kmUp.add(vid); }
   }
   for(const id of kmUp){ await put('vehicles', lv[id], {keep:true, batch:true}); }
+  /* km incoerenti con le altre registrazioni: segno "Da verificare" */
+  let kmFlag=0; const issuesByV={};
+  for(const r of imported){
+    if(!r.km || r.kind==='todo') continue;
+    const iss = issuesByV[r.vehicleId] || (issuesByV[r.vehicleId]=kmIssues(r.vehicleId)), m = iss.get(r.id);
+    if(m){ const cur=state.records.find(x=>x.id===r.id); if(cur){ await put('records', {...cur, verify:addVerify(cur.verify,m)}, {keep:true, batch:true}); kmFlag++; } }
+  }
   await persistLocal(); render(); closeSheet();
-  toast(`Importate ${add+upd} operazioni${nv?` e ${nv} ${nv===1?'veicolo':'veicoli'}`:''}`);
+  toast(`Importate ${add+upd} operazioni${nv?` e ${nv} ${nv===1?'veicolo':'veicoli'}`:''}${kmFlag?`. ${kmFlag} con km da verificare`:''}`);
   if(need.length) await readPendingReceipts(need);
+}
+/* aggiunge un motivo al segno "Da verificare" senza ripeterlo */
+function addVerify(cur, msg){ if(!cur) return msg; if(cur.includes(msg)) return cur; return cur.replace(/\.\s*$/,'')+'; '+msg; }
+/* Coerenza dei km di un veicolo. I km devono crescere con la data: cerco la sequenza più lunga di registrazioni coerenti
+   (la più lunga sequenza non decrescente) e segnalo le altre. Segnalo anche un salto troppo grande tra due rifornimenti.
+   `extra` è una registrazione non ancora salvata (o in modifica) da includere nel controllo. Restituisce Map id -> motivo. */
+function kmIssues(vid, extra){
+  const dm = d => fmtDate(d).slice(0,5), out = new Map();
+  const arr = state.records.filter(o=>o.vehicleId===vid && o.km && o.date && (o.kind==='fuel'||o.kind==='service') && !(extra && o.id===extra.id));
+  if(extra && extra.km && extra.date) arr.push(extra);
+  arr.sort((a,b)=>a.date.localeCompare(b.date) || a.km-b.km);
+  const n=arr.length; if(n<2) return out;
+  const len=new Array(n).fill(1), prv=new Array(n).fill(-1);
+  for(let i=0;i<n;i++) for(let j=0;j<i;j++) if(arr[j].km<=arr[i].km && len[j]+1>len[i]){ len[i]=len[j]+1; prv[i]=j; }
+  let b=0; for(let i=1;i<n;i++) if(len[i]>len[b]) b=i;
+  const keep=new Set(); for(let k=b;k>=0;k=prv[k]) keep.add(k);
+  arr.forEach((o,i)=>{
+    if(keep.has(i)) return;
+    let before=null, after=null;
+    for(let k=i-1;k>=0;k--) if(keep.has(k)){ before=arr[k]; break; }
+    for(let k=i+1;k<n;k++) if(keep.has(k)){ after=arr[k]; break; }
+    out.set(o.id, `Km non coerenti: ${o.km}${before?` dopo i ${before.km} km del ${dm(before.date)}`:''}${after?`${before?' e':''} prima dei ${after.km} km del ${dm(after.date)}`:''}.`);
+  });
+  let last=-1;
+  arr.forEach((o,i)=>{
+    if(!keep.has(i)) return;
+    if(last>=0){ const days=Math.max(1,(new Date(o.date)-new Date(arr[last].date))/864e5), diff=o.km-arr[last].km;
+      if(diff>3000 && diff/days>600) out.set(o.id, `Salto di ${diff} km dal ${dm(arr[last].date)} (${arr[last].km} km): controlla i km.`); }
+    last=i;
+  });
+  return out;
 }
 const unreadable = () => state.records.filter(r=>r.kind==='fuel' && r.needsRead && r.amount==null);
 const hasImg = r => (r.files||[]).some(f=>(f.type||'').startsWith('image/'));
@@ -1408,6 +1465,7 @@ async function readPendingReceipts(ids){
         if(rec.amount!=null){                       /* importo già presente: correggo solo la data */
           if(/^\d{4}-\d{2}-\d{2}$/.test(out.date||'') && !badYear({date:out.date})){ upd.date=out.date; upd.files=upd.files.map(fileKeep); await put('records', upd, {keep:true}); ok++; } else empty++;
         } else if(applyFuelRead(upd, out)){
+          if(upd.km){ const m=kmIssues(upd.vehicleId,upd).get(upd.id); if(m) upd.verify=addVerify(upd.verify,m); }
           upd.files=upd.files.map(fileKeep); await put('records', upd, {keep:true}); ok++;
           /* ora che importo e data sono noti, controllo se è un doppione di un'altra registrazione dello stesso veicolo */
           const other=state.records.find(o=>o.id!==upd.id && o.vehicleId===upd.vehicleId && sameReceipt(upd,o));
