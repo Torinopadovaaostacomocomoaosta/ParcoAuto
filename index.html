@@ -397,9 +397,52 @@ const IDB = {
     try{ localStorage.setItem('parco-'+k, JSON.stringify(v)); return true; }catch(e2){ return false; }
   }
 };
+/* Copia automatica su file (solo amministratore, browser con accesso ai file: Chrome/Edge da computer) */
+const Auto = {
+  supported: typeof window.showSaveFilePicker==='function',
+  handle:null, ok:false, t:null, last:0,
+  async init(){
+    try{
+      const h = await IDB.get('autofile');
+      if(h && typeof h.createWritable==='function'){
+        this.handle=h;
+        this.ok = (await h.queryPermission({mode:'readwrite'}))==='granted';
+        if(this.ok) this.schedule();
+      }
+    }catch(e){}
+  },
+  schedule(){
+    if(!this.handle || !isAdmin()) return;
+    clearTimeout(this.t); this.t=setTimeout(()=>this.write(),700);
+  },
+  async write(){
+    if(!this.handle || !this.ok || !isAdmin()) return false;
+    try{
+      const w = await this.handle.createWritable();
+      await w.write(buildBackupJSON()); await w.close();
+      this.last=Date.now(); Meta.lastBackup=this.last; await saveMeta(); return true;
+    }catch(e){ this.ok=false; render(); return false; }
+  },
+  async setup(){
+    try{
+      const h = await window.showSaveFilePicker({ suggestedName:'parco-auto-copia.json', types:[{description:'Copia dati Parco auto', accept:{'application/json':['.json']}}] });
+      this.handle=h; this.ok=true; await IDB.set('autofile', h);
+      const done = await this.write(); render(); toast(done?'Salvataggio automatico attivo':'Non riesco a scrivere il file');
+    }catch(e){ if(!(e && e.name==='AbortError')) toast('Salvataggio automatico non disponibile'); }
+  },
+  async resume(){
+    try{
+      this.ok = (await this.handle.requestPermission({mode:'readwrite'}))==='granted';
+      if(this.ok){ await this.write(); toast('Salvataggio automatico riattivato'); }
+    }catch(e){ this.ok=false; }
+    render();
+  },
+  async off(){ this.handle=null; this.ok=false; clearTimeout(this.t); await IDB.set('autofile', null); render(); toast('Salvataggio automatico disattivato'); }
+};
 const persistLocal = async () => {
   const ok = await IDB.set('state', { vehicles:state.vehicles, records:state.records });
   if(!ok) toast('Non riesco a salvare su questo dispositivo: scarica subito una copia dal menu Dati');
+  else Auto.schedule();
   return ok;
 };
 async function put(coll, obj, opts={}){
@@ -530,7 +573,8 @@ function render(){
   $('#sub').textContent = mine ? `La tua auto: ${mine.plate}` : (n ? `${n} ${n===1?'veicolo':'veicoli'} nel parco` : 'Manutenzioni, rifornimenti e costi');
   let note='';
   const needBackup = state.records.length>0 && (!Meta.lastBackup || Date.now()-Meta.lastBackup > 30*864e5);
-  if(needBackup) note = `<div class="notice">I dati sono salvati solo su questo dispositivo. Dal menu <b>Dati</b> puoi scaricare una copia di sicurezza${Meta.lastBackup?'':': non ne hai ancora fatta una'}.</div>`;
+  if(isAdmin() && Auto.handle && !Auto.ok) note = `<div class="notice">Il salvataggio automatico su file è in pausa: il browser chiede di riconfermare l’accesso. <button class="btn small" data-action="autosave-resume">Riattiva</button></div>`;
+  else if(needBackup) note = `<div class="notice">I dati sono salvati solo su questo dispositivo. Dal menu <b>Dati</b> puoi scaricare una copia di sicurezza${Meta.lastBackup?'':': non ne hai ancora fatta una'}.${isAdmin() && Auto.supported?' Oppure attiva il salvataggio automatico su file.':''}</div>`;
   $('#notice').innerHTML = note;
   const app = $('#app');
   if(needRole){ app.innerHTML = roleHTML(); return; }
@@ -902,7 +946,9 @@ function recordForm(kind, r={}){
         const texts=[];
         for(const f of imgFiles){
           hint.textContent='Leggo la ricevuta… (la prima volta serve la connessione e qualche secondo)';
-          texts.push(await ocrText(await fileBlob(f), pct=>{ hint.textContent=`Leggo la ricevuta… ${pct}%`; }));
+          const r = await ocrReceipt(await fileBlob(f), pct=>{ hint.textContent=`Leggo la ricevuta… ${pct}%`; });
+          texts.push(r.text);
+          if(r.rot){ await turnFile(f,r.rot); renderThumbs(); }
         }
         const out = parseReceipt(texts.join('\n'), kind==='fuel' ? 'fuel' : 'service');
         const found = out && (out.amount || out.liters || out.date || out.plate || out.invoiceNo);
@@ -1064,7 +1110,11 @@ function onboardingHTML(){
 function syncCardHTML(){
   const n = pendingChanges().records.length;
   const last = Meta.lastSent ? 'Ultimo invio: '+new Date(Meta.lastSent).toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : 'Non hai ancora inviato nulla';
-  if(isAdmin()) return `<div class="card sync"><div class="sync-t">Aggiornamenti dei colleghi<div class="muted small">Trascina qui la mail ricevuta oppure scegli il file</div></div><div class="sync-b"><button class="btn primary" data-action="import">Importa</button></div></div>`;
+  if(isAdmin()){
+    const pend = pendingReads(), nopic = unreadable().length - unreadable().filter(hasImg).length;
+    const reread = (pend.length||nopic) ? `<div class="notice" style="margin:10px 0 0">${pend.length?`<b>${pend.length}</b> ${pend.length===1?'ricevuta da rileggere (non letta o con data impossibile)':'ricevute da rileggere (non lette o con data impossibile)'}. <button class="btn small" data-action="reread">Rileggi ora</button> `:''}${nopic?`${nopic} ${nopic===1?'rifornimento senza foto leggibile (PDF o nessun allegato)':'rifornimenti senza foto leggibile (PDF o nessun allegato)'}: importo da compilare a mano.`:''}</div>` : '';
+    return `<div class="card sync"><div class="sync-t">Aggiornamenti dei colleghi<div class="muted small">Trascina qui la mail ricevuta oppure scegli il file</div></div><div class="sync-b"><button class="btn primary" data-action="import">Importa</button></div>${reread}</div>`;
+  }
   return `<div class="card sync"><div class="sync-t"><b>${n}</b>${n===1?'operazione da inviare':'operazioni da inviare'}<div class="muted small">${last}</div></div><div class="sync-b"><button class="btn primary" data-action="send">Invia aggiornamento</button></div></div>`;
 }
 function buildPayload(){
@@ -1184,7 +1234,7 @@ function previewImport(p){
   const idx=importIndex(p);
   const newPlates=Array.from(new Set(Object.values(idx).map(v=>normPlate(v.plate)).filter(pl=>pl && !state.vehicles.some(x=>x.plate===pl))));
   const exist=new Map(state.records.map(r=>[r.id,r]));
-  let add=0, upd=0, same=0; const by={}; const toReadN=p.records.filter(r=>r.needsRead && r.amount==null).length;
+  let add=0, upd=0, same=0; const by={}; const toReadN=p.records.filter(r=>r.kind==='fuel' && hasImg(r) && ((r.needsRead && r.amount==null) || (r.amount!=null && badYear(r)))).length;
   p.records.forEach(r=>{
     const ex=exist.get(r.id); if(ex && stamp(ex)>=stamp(r)){ same++; return; }
     if(ex) upd++; else add++;
@@ -1252,7 +1302,7 @@ async function applyImport(p){
     const rec={...r, vehicleId:vid, by:r.by||p.from||''};
     await put('records', rec, {keep:true, batch:true});
     if(ex) upd++; else add++;
-    if(rec.needsRead && rec.amount==null && (rec.files||[]).some(f=>(f.type||'').startsWith('image/'))) need.push(rec.id);
+    if(rec.kind==='fuel' && hasImg(rec) && ((rec.needsRead && rec.amount==null) || (rec.amount!=null && badYear(rec)))) need.push(rec.id);
     const v=lv[vid]; if(v && rec.km && rec.km>(v.km||0)){ v.km=rec.km; kmUp.add(vid); }
   }
   for(const id of kmUp){ await put('vehicles', lv[id], {keep:true, batch:true}); }
@@ -1260,19 +1310,34 @@ async function applyImport(p){
   toast(`Importate ${add+upd} operazioni${nv?` e ${nv} ${nv===1?'veicolo':'veicoli'}`:''}`);
   if(need.length) await readPendingReceipts(need);
 }
+const unreadable = () => state.records.filter(r=>r.kind==='fuel' && r.needsRead && r.amount==null);
+const hasImg = r => (r.files||[]).some(f=>(f.type||'').startsWith('image/'));
+const badYear = r => { const y=parseInt((r.date||'').slice(0,4),10), ty=new Date().getFullYear(); return !!y && (y<ty-1 || y>ty); };
+/* rifornimenti già salvati con una data impossibile (es. 2008, 2076): si rilegge solo la data dalla foto */
+const wrongYearReads = () => state.records.filter(r=>r.kind==='fuel' && r.amount!=null && badYear(r) && hasImg(r));
+const pendingReads = () => unreadable().filter(hasImg).concat(wrongYearReads());
+let reading=false;
 async function readPendingReceipts(ids){
-  let ok=0;
-  for(let i=0;i<ids.length;i++){
-    const rec=state.records.find(r=>r.id===ids[i]); if(!rec) continue;
-    toast(`Leggo la ricevuta ${i+1} di ${ids.length}…`);
-    try{
-      const texts=[];
-      for(const f of (rec.files||[]).filter(f=>(f.type||'').startsWith('image/')).slice(0,2)) texts.push(await ocrText(await fileBlob(f)));
-      const upd={...rec};
-      if(applyFuelRead(upd, parseReceipt(texts.join('\n'),'fuel'))){ await put('records', upd, {keep:true}); ok++; }
-    }catch(e){ toast('Lettura non riuscita: serve la connessione'); return; }
-  }
-  toast(`Ricevute lette: ${ok} su ${ids.length}`);
+  if(reading) return; reading=true;
+  let ok=0, net=0, empty=0;
+  try{
+    for(let i=0;i<ids.length;i++){
+      const rec=state.records.find(r=>r.id===ids[i]); if(!rec) continue;
+      toast(`Leggo la ricevuta ${i+1} di ${ids.length}…`);
+      try{
+        const texts=[]; const upd={...rec, files:(rec.files||[]).map(f=>({...f}))};
+        for(const f of upd.files.filter(f=>(f.type||'').startsWith('image/')).slice(0,2)){ const r=await ocrReceipt(await fileBlob(f)); texts.push(r.text); await turnFile(f,r.rot); }
+        const out=parseReceipt(texts.join('\n'),'fuel');
+        if(rec.amount!=null){                       /* importo già presente: correggo solo la data */
+          if(/^\d{4}-\d{2}-\d{2}$/.test(out.date||'') && !badYear({date:out.date})){ upd.date=out.date; upd.files=upd.files.map(fileKeep); await put('records', upd, {keep:true}); ok++; } else empty++;
+        } else if(applyFuelRead(upd, out)){ upd.files=upd.files.map(fileKeep); await put('records', upd, {keep:true}); ok++; } else empty++;
+      }catch(e){ net++; if(net>=2 && !ok && !empty) break; }  /* senza connessione inutile insistere */
+    }
+  } finally { reading=false; }
+  const left = ids.length-ok;
+  if(net && !ok && !empty) toast('Lettura non riuscita: serve la connessione internet. Riprova con “Rileggi ora”.');
+  else toast(`Ricevute lette: ${ok} su ${ids.length}${left?`. ${left} da compilare a mano (foto poco leggibile o senza connessione)`:''}`);
+  render();
 }
 const showDrop = on => { const d=$('#dropzone'); if(d) d.hidden=!on; };
 window.addEventListener('dragover', e=>{ if(e.dataTransfer && Array.from(e.dataTransfer.types||[]).includes('Files')){ e.preventDefault(); showDrop(isAdmin()); } });
@@ -1282,33 +1347,66 @@ $('#impfile').addEventListener('change', e=>{ const f=e.target.files[0]; e.targe
 
 /*OCR-START*/
 function parseReceipt(text, kind){
-  const lines = String(text||'').split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  /* l'OCR confonde spesso "0" con "O" dentro ai numeri: li correggo prima di leggere */
+  const fixO = l => { let p; do{ p=l; l=l.replace(/([\d.,:])[Oo](?=[\d.,:Oo\s€]|$)/g,'$10'); }while(l!==p); return l; };
+  const lines = String(text||'').split(/\r?\n/).map(l=>fixO(l.trim())).filter(Boolean);
   const all = lines.join('\n');
-  const num = s => { s=String(s).replace(/\s/g,''); if(/,\d{1,3}$/.test(s)) s=s.replace(/\./g,'').replace(',','.'); else s=s.replace(/,/g,''); const n=parseFloat(s); return isFinite(n)?n:null; };
-  const tokens = l => (l.match(/\d{1,3}(?:\.\d{3})+,\d{2,3}|\d+[.,]\d{2,3}/g)||[]).map(x=>({ d:(x.match(/[.,](\d+)$/)||[,''])[1].length, n:num(x) })).filter(x=>x.n!=null);
+  const num = s => { s=String(s).replace(/\s/g,'').replace(/:/g,','); if(/,\d{1,3}$/.test(s)) s=s.replace(/\./g,'').replace(',','.'); else s=s.replace(/,/g,''); const n=parseFloat(s); return isFinite(n)?n:null; };
+  const tokens = l => (l.match(/\d{1,3}(?:\.\d{3})+,\d{2,3}|\d+[.,:]\d{1,3}/g)||[]).map(x=>({ d:(x.match(/[.,:](\d+)$/)||[,''])[1].length, n:num(x) })).filter(x=>x.n!=null);
+  /* sulle righe del totale ammetto anche "45 50" (virgola persa) e "45,5" (zero perso) */
+  const totTokens = l => { let t=tokens(l); if(!t.length){ const m=l.match(/(\d{1,4})\s(\d{2})(?!\d)/); if(m) t=[{d:2,n:parseFloat(m[1]+'.'+m[2])}]; } return t.map(x=>x.d===1?{d:2,n:x.n}:x); };
   const out = { date:null, amount:null, liters:null, fuel:null, supplier:null, km:null, plate:null, invoiceNo:null, desc:null };
 
+  const now=new Date(), ty=now.getFullYear(), todayISO=ty+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
   for(const m of all.matchAll(/(\d{2})[\/\-.](\d{2})[\/\-.](\d{4}|\d{2})(?!\d)/g)){
-    const y = m[3].length===2 ? '20'+m[3] : m[3];
-    const iso = parseDMY(m[1]+'/'+m[2]+'/'+y);
-    if(iso){ out.date=iso; break; }
+    const y = m[3].length===2 ? 2000+(+m[3]) : +m[3];
+    let iso = parseDMY(m[1]+'/'+m[2]+'/'+y);
+    if(!iso) continue;
+    /* anno impossibile (l'OCR legge 2026 come 2008 o 2068): tengo giorno e mese e uso l'anno corrente, o il precedente se la data sarebbe futura */
+    if(y<ty-1 || y>ty){
+      let alt=parseDMY(m[1]+'/'+m[2]+'/'+ty); if(alt && alt>todayISO) alt=parseDMY(m[1]+'/'+m[2]+'/'+(ty-1));
+      if(!alt) continue; iso=alt;
+    }
+    out.date=iso; break;
   }
 
   const skip = /iva|imponibile|resto|sconto|prezzo|€\s*\/|eur\s*\/|\/\s*l/i;
   let cand = [];
-  lines.filter(l=>/totale|da pagare|importo|pagato/i.test(l) && !/iva|imponibile|resto|sconto/i.test(l)).forEach(l=>tokens(l).filter(x=>x.d===2).forEach(x=>cand.push(x.n)));
-  if(!cand.length) lines.filter(l=>!skip.test(l)).forEach(l=>tokens(l).filter(x=>x.d===2).forEach(x=>cand.push(x.n)));
+  const noTot = /\biva\b|imponibile|resto|sconto|prezzo|preis|\bmwst|€\s*\/|eur\s*\/|\/\s*l\b/i;
+  /* prima le righe "totale / da pagare / importo", poi quelle "pagato / contanti" (può essere più del totale) */
+  lines.filter(l=>/totale|da pagare|importo|gesamt|summe|betrag/i.test(l) && !noTot.test(l)).forEach(l=>totTokens(l).filter(x=>x.d===2).forEach(x=>cand.push(x.n)));
+  if(!cand.length) lines.filter(l=>/pagato|pagamento|carta|bancomat|pos\b/i.test(l) && !noTot.test(l)).forEach(l=>totTokens(l).filter(x=>x.d===2).forEach(x=>cand.push(x.n)));
+  /* ultima possibilità: qualsiasi cifra con due decimali, ma non quelle delle righe dei litri o del prezzo */
+  /* (tolgo date e orari: "20:52" o "06.11" non sono importi) */
+  const noDT = l => l.replace(/\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}/g,' ').replace(/\b\d{1,2}:\d{2}(?::\d{2})?\b/g,' ');
+  if(!cand.length) lines.filter(l=>!skip.test(l) && !(kind==='fuel' && /litri|\blt\b|\bl\b|quantit|qta|volume|erogat|menge|liter/i.test(l))).forEach(l=>tokens(noDT(l)).filter(x=>x.d===2).forEach(x=>cand.push(x.n)));
   if(cand.length) out.amount = Math.max(...cand);
 
   if(kind==='fuel'){
+    const okP = n => n>=0.8 && n<=3.5;
     let price=null;
-    lines.filter(l=>/prezzo|€\s*\/|eur\s*\/|\/\s*l/i.test(l)).forEach(l=>tokens(l).forEach(x=>{ if(price==null && x.n>=0.8 && x.n<=3.5) price=x.n; }));
+    lines.filter(l=>/prezzo|preis|€\s*\/|eur\s*\/|\/\s*l/i.test(l)).forEach(l=>tokens(l).forEach(x=>{ if(price==null && okP(x.n)) price=x.n; }));
+    /* il prezzo al litro ha di solito 3 decimali (es. 2,190), anche senza la scritta "Prezzo" */
+    if(price==null){
+      const pc=[]; lines.filter(l=>!/totale|importo|gesamt|summe|\biva\b/i.test(l)).forEach(l=>tokens(l).forEach(x=>{ if(x.d===3 && okP(x.n)) pc.push({n:x.n, hint:/eur|€|\bx\b/i.test(l)}); }));
+      if(pc.length) price = (pc.find(c=>c.hint) || pc[0]).n;   /* meglio la riga con "EUR" o "x", non un numero di indirizzo o di documento */
+    }
     let lit=null;
-    lines.filter(l=>/litri|\blt\b|\bl\b|quantit|qta|volume|erogat/i.test(l)).forEach(l=>tokens(l).forEach(x=>{ if(lit==null && x.d>=2 && x.n>=3 && x.n<=150 && x.n!==out.amount && !(price && Math.abs(x.n-price)<0.0005)) lit=x.n; }));
-    if(lit==null && out.amount && price) lit = Math.round(out.amount/price*100)/100;
-    if(out.amount==null && lit && price) out.amount = Math.round(lit*price*100)/100;
-    out.liters = lit;
-    if(/gasolio|diesel/i.test(all)) out.fuel='Diesel';
+    lines.filter(l=>/litri|\blt\b|\bl\b|quantit|qta|volume|erogat|menge|liter/i.test(l) && !/prezzo|preis|€\s*\/|eur\s*\//i.test(l)).forEach(l=>tokens(l).forEach(x=>{ if(lit==null && x.d>=2 && x.n>=3 && x.n<=150 && x.n!==out.amount && !(price && Math.abs(x.n-price)<0.0005)) lit=x.n; }));
+    /* riga con solo "L 34,43" (a volte la L viene letta come 1 o |) */
+    if(lit==null) lines.forEach(l=>{ const m=l.match(/^[Ll1|I]\s+(\d{1,3}[.,]\d{2})\b/); if(lit==null && m){ const n=num(m[1]); if(n>=3 && n<=150 && n!==out.amount) lit=n; } });
+    /* importo, litri e prezzo devono tornare tra loro: se non tornano correggo (o scarto) invece di salvare dati sbagliati */
+    let a=out.amount, l=lit, p=price; const r2=n=>Math.round(n*100)/100, okR=r=>r>=0.9 && r<=3.5, okL=n=>n>=3 && n<=150;
+    if(a && l){
+      if(okR(a/l)){}
+      else if(okR(l/a) && okL(a)){ const t=a; a=l; l=t; }               /* litri e importo scambiati */
+      else if(okL(l) && p) a=r2(l*p);                                    /* importo letto male: lo ricalcolo */
+      else if(p){ const e=a/p; l=okL(e)?r2(e):null; }
+      else l=null;
+    } else if(a && p && !l){ const e=a/p; l=okL(e)?r2(e):null; }
+    else if(l && p && !a) a=r2(l*p);
+    out.amount = a || null; out.liters = l || null;
+    if(/gasolio|diesel|2710\s?2011/i.test(all)) out.fuel='Diesel';
     else if(/benzina|senza\s*piombo|\bsp\s?9[58]\b|unleaded/i.test(all)) out.fuel='Benzina';
     else if(/\bgpl\b/i.test(all)) out.fuel='GPL';
     else if(/metano/i.test(all)) out.fuel='Metano';
@@ -1343,11 +1441,50 @@ function loadTesseract(){
   });
   return tessPromise;
 }
-async function ocrText(blob, onProgress){
+/* Prepara la foto per l'OCR: la ruota di `rot` gradi e toglie ombre e sfondo grigio (dividendo per la luminosità locale). */
+function receiptCanvas(bm, rot, maxDim){
+  const bw=bm.width||bm.naturalWidth, bh=bm.height||bm.naturalHeight, s=Math.min(1,maxDim/Math.max(bw,bh));
+  const w0=Math.round(bw*s), h0=Math.round(bh*s), sw=(rot%180)?h0:w0, sh=(rot%180)?w0:h0;
+  const c=document.createElement('canvas'); c.width=sw; c.height=sh; const x=c.getContext('2d');
+  x.fillStyle='#fff'; x.fillRect(0,0,sw,sh); x.save(); x.translate(sw/2,sh/2); x.rotate(rot*Math.PI/180); x.drawImage(bm,-w0/2,-h0/2,w0,h0); x.restore();
+  return c;
+}
+function flattenCanvas(c){
+  const sw=c.width, sh=c.height, x=c.getContext('2d'), f=24;
+  const sm=document.createElement('canvas'); sm.width=Math.max(1,Math.round(sw/f)); sm.height=Math.max(1,Math.round(sh/f));
+  sm.getContext('2d').drawImage(c,0,0,sm.width,sm.height);
+  const bg=document.createElement('canvas'); bg.width=sw; bg.height=sh; const bx=bg.getContext('2d'); bx.imageSmoothingQuality='high'; bx.drawImage(sm,0,0,sw,sh);
+  const d=x.getImageData(0,0,sw,sh), b=bx.getImageData(0,0,sw,sh).data, p=d.data;
+  for(let i=0;i<p.length;i+=4){
+    const g=.299*p[i]+.587*p[i+1]+.114*p[i+2], bv=Math.max(40,.299*b[i]+.587*b[i+1]+.114*b[i+2]);
+    let v=(g/bv*255-110)*1.6+150; v=v<0?0:v>255?255:v; p[i]=p[i+1]=p[i+2]=v;
+  }
+  x.putImageData(d,0,0); return c;
+}
+const canvasBlob = (c,type,q) => new Promise(r=>c.toBlob(r,type,q));
+const ocrScore = t => (String(t).match(/importo|totale|litri|volume|prezzo|\bdata\b|\beur\b|€|diesel|gasolio|benzina|erogat|quantit|ricevuta|acquisto|\bkm\b|pompa|prodotto|gesamt|menge|datum/gi)||[]).length + (/\d{2}[\/.-]\d{2}[\/.-]\d{2,4}/.test(t)?2:0);
+/* Legge una foto: se il testo non ha senso la prova ruotata di 90°, 270° e 180° (scontrini fotografati di traverso o capovolti) e tiene la migliore. */
+async function ocrReceipt(blob, onProgress){
   const T = await loadTesseract();
   const worker = await T.createWorker('ita', 1, { logger: m=>{ if(m && m.status==='recognizing text' && onProgress) onProgress(Math.round(m.progress*100)); } });
-  try{ const r = await worker.recognize(blob); return (r && r.data && r.data.text) || ''; }
-  finally{ try{ await worker.terminate(); }catch(e){} }
+  try{
+    const bm = await loadBitmap(blob); let best=null;
+    for(const rot of [0,90,270,180]){
+      const r = await worker.recognize(await canvasBlob(flattenCanvas(receiptCanvas(bm,rot,2000)),'image/png'));
+      const text=(r && r.data && r.data.text) || '', sc=ocrScore(text);
+      if(!best || sc>best.sc) best={rot,sc,text};
+      if(sc>=6) break;
+    }
+    return best;
+  } finally { try{ await worker.terminate(); }catch(e){} }
+}
+/* Se la foto era girata, riscrive anche l'allegato nel verso giusto, così lo si legge anche aprendolo. */
+async function turnFile(f, rot){
+  if(!rot) return;
+  try{
+    const bm = await loadBitmap(await fileBlob(f)); const blob = await canvasBlob(receiptCanvas(bm,rot,1600),'image/jpeg',.8);
+    if(blob){ f.url = await toDataURL(blob); f.blob = blob; }
+  }catch(e){}
 }
 
 /* ---------- ruolo, PIN, copia dei dati ---------- */
@@ -1438,15 +1575,21 @@ function dataSheet(){
       <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn small" data-action="role-change">Cambia ruolo</button>${isAdmin()?`<button class="btn small" data-action="pin">${Meta.pin?'Cambia o rimuovi PIN':'Imposta PIN'}</button>`:''}</div></div>
     <div class="card" style="margin:0 0 12px"><h2 style="font-size:20px">Copia dei dati</h2>
       <p class="muted small" style="margin:0 0 10px">I dati sono salvati su questo dispositivo: ${state.records.length} operazioni, ${state.vehicles.length} veicoli. Ultima copia: ${last}.</p>
-      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-action="backup">Scarica copia dei dati</button><button class="btn" data-action="restore-pick">Ripristina da copia</button></div></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-action="backup">Scarica copia dei dati</button><button class="btn" data-action="restore-pick">Ripristina da copia</button></div>
+      ${isAdmin()?(Auto.supported
+        ? `<p class="muted small" style="margin:12px 0 8px"><b>Salvataggio automatico su file:</b> ${Auto.handle?(Auto.ok?`attivo${Auto.last?', ultimo salvataggio alle '+new Date(Auto.last).toTimeString().slice(0,5):''}. Il file <b>${esc(Auto.handle.name||'')}</b> si aggiorna a ogni modifica.`:'in pausa, va riattivato.'):'non attivo. Scegli un file (meglio in una cartella sincronizzata, per esempio OneDrive) e verrà aggiornato a ogni modifica.'}</p>
+           <div style="display:flex;gap:8px;flex-wrap:wrap">${Auto.handle?(Auto.ok?'':'<button class="btn small" data-action="autosave-resume">Riattiva</button>')+'<button class="btn small" data-action="autosave-setup">Cambia file</button><button class="btn small" data-action="autosave-off">Disattiva</button>':'<button class="btn primary small" data-action="autosave-setup">Attiva salvataggio automatico</button>'}</div>`
+        : `<p class="muted small" style="margin:12px 0 0">Il salvataggio automatico su file richiede Chrome o Edge da computer. Su questo browser usa “Scarica copia dei dati”.</p>`):''}</div>
     <div class="card" style="margin:0"><h2 style="font-size:20px">Cancella</h2>
       <p class="muted small" style="margin:0 0 10px">Elimina tutti i dati di questo dispositivo. Prima scarica una copia.</p>
       <button class="btn danger" data-action="erase">Cancella tutti i dati</button></div>`);
 }
+function buildBackupJSON(){
+  return JSON.stringify({ app:'parco-auto', kind:'backup', v:1, exportedAt:Date.now(), from:Meta.name||'', vehicles:state.vehicles, vehicleIndex:{}, records:state.records,
+    meta:{ role:Meta.role, myVehicle:Meta.myVehicle, name:Meta.name, to:Meta.to, lastSent:Meta.lastSent, pin:Meta.pin } });
+}
 async function backupNow(){
-  const payload={ app:'parco-auto', kind:'backup', v:1, exportedAt:Date.now(), from:Meta.name||'', vehicles:state.vehicles, vehicleIndex:{}, records:state.records,
-    meta:{ role:Meta.role, myVehicle:Meta.myVehicle, name:Meta.name, to:Meta.to, lastSent:Meta.lastSent, pin:Meta.pin } };
-  const json=JSON.stringify(payload), fname=`parco-auto-copia-${todayStr()}.json`;
+  const json=buildBackupJSON(), fname=`parco-auto-copia-${todayStr()}.json`;
   const file=new File([json], fname, {type:'application/json'});
   if(navigator.canShare && navigator.canShare({files:[file]})){
     try{ await navigator.share({files:[file], title:'Copia dei dati Parco auto'}); Meta.lastBackup=Date.now(); await saveMeta(); render(); toast('Copia salvata'); return; }
@@ -1479,6 +1622,10 @@ document.addEventListener('click', async e=>{
   const a = t.dataset.action;
   if(a==='close-viewer'){ if(e.target.closest('a')) return; closeViewer(); return; }
   if(a==='close-sheet'){ closeSheet(); return; }
+  if(a==='reread'){ if(isAdmin()) await readPendingReceipts(pendingReads().map(r=>r.id)); return; }
+  if(a==='autosave-setup'){ if(isAdmin()){ await Auto.setup(); if($('.sheet')) dataSheet(); } return; }
+  if(a==='autosave-resume'){ if(isAdmin()){ await Auto.resume(); if($('.sheet')) dataSheet(); } return; }
+  if(a==='autosave-off'){ await Auto.off(); if($('.sheet')) dataSheet(); return; }
   if(a==='sel-toggle'){ if(!isAdmin()) return; ui.sel = ui.sel ? null : new Set(); render(); return; }
   if(a==='pick'){ if(!ui.sel) return; const id=t.dataset.id; ui.sel.has(id)?ui.sel.delete(id):ui.sel.add(id); refreshSel(); return; }
   if(a==='sel-all'){
@@ -1553,6 +1700,7 @@ window.addEventListener('resize', ()=>{ clearTimeout(resizeT); resizeT=setTimeou
   try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); }catch(e){}
   if(Meta.role==='admin' && Meta.pin){ try{ await lockScreen(); }catch(e){} }
   state.ready=true;
+  if(Auto.supported && Meta.role==='admin') await Auto.init();
   render();
   window.__parcoReady=true;
   if(!first){
