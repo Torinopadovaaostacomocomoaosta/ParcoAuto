@@ -170,6 +170,10 @@ td small{ display:block; color:var(--muted); font-size:13px; }
 .row .amt{ font-family:'Barlow Condensed',sans-serif; font-size:22px; font-weight:700; white-space:nowrap; font-variant-numeric:tabular-nums; }
 .row .thumb{ width:42px; height:42px; border-radius:6px; object-fit:cover; border:1px solid var(--line); flex:none; background:var(--soft); }
 .row .acts{ display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
+.row .pick{ width:22px; height:22px; flex:none; accent-color:var(--c, #0f5c5c); pointer-events:none; }
+.row.sel{ outline:2px solid var(--c, #0f5c5c); outline-offset:-2px; }
+.selbar{ position:sticky; bottom:10px; z-index:20; display:flex; flex-wrap:wrap; gap:8px; align-items:center; background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin:0 0 12px; box-shadow:0 6px 24px rgba(0,0,0,.18); }
+.selbar b{ margin-right:auto; }
 .k-fuel{ --c:var(--fuel); } .k-service{ --c:var(--service); } .k-quote{ --c:var(--quote); } .k-todo{ --c:var(--todo); }
 .st{ font-size:13px; font-weight:600; padding:1px 8px; border-radius:10px; background:var(--soft); }
 .st.ok{ color:var(--ok); } .st.warn{ color:var(--warn); } .st.bad{ color:var(--bad); }
@@ -371,7 +375,7 @@ const Store = { mode:'local', canWrite:true, dl:null };
 const isAdmin = () => Meta.role==='admin';
 const V = () => (!isAdmin() && Meta.myVehicle) ? state.vehicles.filter(v=>v.id===Meta.myVehicle) : state.vehicles;
 const R = () => (!isAdmin() && Meta.myVehicle) ? state.records.filter(r=>r.vehicleId===Meta.myVehicle) : state.records;
-const ui = { tab:'costi', year:String(new Date().getFullYear()), vehicle:'', month:null, regKind:'all', regVehicle:'', regQuery:'', lastVehicle:'' };
+const ui = { tab:'costi', year:String(new Date().getFullYear()), vehicle:'', month:null, regKind:'all', regVehicle:'', regQuery:'', lastVehicle:'', sel:null };
 
 const IDB = {
   mem:{}, broken:false,
@@ -622,7 +626,7 @@ function chartSVG(fuel, serv, sel){
 /* registro */
 const KIND_LABEL = {fuel:'Rifornimento', service:'Manutenzione', quote:'Preventivo', todo:'Da fare'};
 const QSTATUS = {attesa:['In attesa','warn'], approvato:['Approvato','ok'], rifiutato:['Rifiutato','bad'], eseguito:['Eseguito','ok']};
-function rowHTML(r, withActions){
+function rowHTML(r, withActions, selMode){
   const img = (r.files||[]).find(f=>(f.type||'').startsWith('image/'));
   const title = r.kind==='fuel'
     ? [r.liters?`${nf(r.liters,2)} L`:'', r.fuel||'', r.supplier||''].filter(Boolean).join(' ') || 'Rifornimento'
@@ -640,12 +644,14 @@ function rowHTML(r, withActions){
   if((r.files||[]).length) meta.push(`<span>${r.files.length} ${r.files.length===1?'allegato':'allegati'}</span>`);
   const q = r.kind==='quote' ? QSTATUS[r.status||'attesa'] : null;
   let acts='';
-  if(withActions && Store.canWrite){
+  if(withActions && Store.canWrite && !selMode){
     if(r.kind==='todo') acts = `<div class="acts"><button class="btn small" data-action="convert" data-id="${r.id}">Segna come eseguito</button></div>`;
     if(r.kind==='quote' && (r.status||'attesa')==='attesa') acts = `<div class="acts"><button class="btn small" data-action="qstatus" data-id="${r.id}" data-s="approvato">Approva</button><button class="btn small" data-action="qstatus" data-id="${r.id}" data-s="rifiutato">Rifiuta</button></div>`;
     if(r.kind==='quote' && r.status==='approvato') acts = `<div class="acts"><button class="btn small" data-action="convert" data-id="${r.id}">Registra fattura</button><button class="btn small" data-action="qstatus" data-id="${r.id}" data-s="attesa">Rimetti in attesa</button></div>`;
   }
-  return `<div class="row k-${r.kind}" data-action="edit" data-id="${r.id}" role="button" tabindex="0">
+  const on = !!(selMode && ui.sel.has(r.id));
+  return `<div class="row k-${r.kind}${on?' sel':''}" data-action="${selMode?'pick':'edit'}" data-id="${r.id}" role="${selMode?'checkbox':'button'}"${selMode?` aria-checked="${on}"`:''} tabindex="0">
+    ${selMode?`<input type="checkbox" class="pick" tabindex="-1" aria-hidden="true" ${on?'checked':''}>`:''}
     ${img?`<img class="thumb" src="${esc(img.url)}" alt="">`:''}
     <div class="main">
       <div class="t1"><span class="kind">${KIND_LABEL[r.kind]}</span>${plateHTML(vLabel(r.vehicleId),true)}${q?`<span class="st ${q[1]}">${q[0]}</span>`:''}${(r.kind==='fuel' && r.needsRead && r.amount==null)?'<span class="st warn">Da leggere</span>':''}</div>
@@ -673,7 +679,7 @@ function registroListHTML(){
     const key = r.date ? `${MONTHS[parseInt(r.date.slice(5,7),10)-1]} ${r.date.slice(0,4)}` : 'Senza data';
     if(key!==cur){ flush(); cur=key; }
     if(isCost(r)) sum += r.amount||0;
-    buf += rowHTML(r,true);
+    buf += rowHTML(r,true,!!ui.sel);
   });
   flush();
   return out;
@@ -686,8 +692,30 @@ function viewRegistro(app){
       <select data-change="regVehicle" aria-label="Veicolo"><option value="">${isAdmin()?'Tutti i veicoli':'La mia auto'}</option>${V().map(v=>`<option value="${v.id}" ${v.id===ui.regVehicle?'selected':''}>${esc(v.plate)}</option>`).join('')}</select>
       <input type="search" id="regq" placeholder="Cerca fornitore, descrizione, n. fattura" value="${esc(ui.regQuery)}" aria-label="Cerca">
       <button class="btn" data-action="export">Esporta CSV</button>
+      ${isAdmin()?`<button class="btn" data-action="sel-toggle">${ui.sel?'Fine selezione':'Seleziona'}</button>`:''}
     </div>
-    <div id="reglist">${registroListHTML()}</div>`;
+    <div id="reglist">${registroListHTML()}</div>
+    <div id="selbar">${selBarHTML()}</div>`;
+}
+function selBarHTML(){
+  if(!ui.sel || !isAdmin()) return '';
+  const vis = filteredRegistro(), n = vis.filter(r=>ui.sel.has(r.id)).length;
+  const all = vis.length && vis.every(r=>ui.sel.has(r.id));
+  return `<div class="selbar"><b>${n} ${n===1?'selezionata':'selezionate'}</b>
+    <button class="btn small" data-action="sel-all">${all?'Deseleziona tutte':`Seleziona tutte (${vis.length})`}</button>
+    <button class="btn danger small" data-action="sel-del" ${n?'':'disabled'}>Elimina selezionate</button>
+    <button class="btn small" data-action="sel-toggle">Fine</button></div>`;
+}
+function refreshSel(){
+  const l=$('#reglist'), b=$('#selbar'); if(l) l.innerHTML=registroListHTML(); if(b) b.innerHTML=selBarHTML();
+}
+async function deleteSelected(){
+  if(!isAdmin() || !ui.sel) return;
+  const ids=new Set(filteredRegistro().filter(r=>ui.sel.has(r.id)).map(r=>r.id)); const n=ids.size;
+  if(!n) return;
+  state.records = state.records.filter(x=>!ids.has(x.id));
+  ui.sel = new Set();
+  await persistLocal(); render(); toast(n===1?'1 registrazione eliminata':`${n} registrazioni eliminate`);
 }
 
 function viewDaFare(app){
@@ -1451,7 +1479,19 @@ document.addEventListener('click', async e=>{
   const a = t.dataset.action;
   if(a==='close-viewer'){ if(e.target.closest('a')) return; closeViewer(); return; }
   if(a==='close-sheet'){ closeSheet(); return; }
-  if(a==='tab'){ ui.tab=t.dataset.tab; render(); window.scrollTo(0,0); return; }
+  if(a==='sel-toggle'){ if(!isAdmin()) return; ui.sel = ui.sel ? null : new Set(); render(); return; }
+  if(a==='pick'){ if(!ui.sel) return; const id=t.dataset.id; ui.sel.has(id)?ui.sel.delete(id):ui.sel.add(id); refreshSel(); return; }
+  if(a==='sel-all'){
+    if(!ui.sel) return; const vis=filteredRegistro();
+    if(vis.every(r=>ui.sel.has(r.id))) vis.forEach(r=>ui.sel.delete(r.id)); else vis.forEach(r=>ui.sel.add(r.id));
+    refreshSel(); return;
+  }
+  if(a==='sel-del'){
+    const n=filteredRegistro().filter(r=>ui.sel&&ui.sel.has(r.id)).length; if(!n) return;
+    if(!t.classList.contains('armed')){ t.classList.add('armed'); t.textContent=`Conferma: elimina ${n}`; setTimeout(()=>{ if(t.isConnected){ t.classList.remove('armed'); t.textContent='Elimina selezionate'; } },4000); return; }
+    await deleteSelected(); return;
+  }
+  if(a==='tab'){ ui.sel=null; ui.tab=t.dataset.tab; render(); window.scrollTo(0,0); return; }
   if(a==='add-menu'){ addMenu(); return; }
   if(a==='new'){ recordForm(t.dataset.k); return; }
   if(a==='new-vehicle'){ if(!isAdmin()) return; vehicleForm(); return; }
@@ -1484,14 +1524,14 @@ document.addEventListener('click', async e=>{
   }
 });
 document.addEventListener('keydown', e=>{
-  if((e.key==='Enter'||e.key===' ') && e.target.matches('[data-action="edit"],[data-action="edit-vehicle"],[data-action="month"],[data-fv]')){ e.preventDefault(); e.target.click(); }
+  if((e.key==='Enter'||e.key===' ') && e.target.matches('[data-action="edit"],[data-action="pick"],[data-action="edit-vehicle"],[data-action="month"],[data-fv]')){ e.preventDefault(); e.target.click(); }
 });
 document.addEventListener('change', e=>{
   const k = e.target.dataset && e.target.dataset.change; if(!k) return;
   ui[k]=e.target.value; if(k==='year'||k==='vehicle') ui.month=null; render();
 });
 document.addEventListener('input', e=>{
-  if(e.target.id==='regq'){ ui.regQuery=e.target.value; const l=$('#reglist'); if(l) l.innerHTML=registroListHTML(); }
+  if(e.target.id==='regq'){ ui.regQuery=e.target.value; refreshSel(); }
 });
 
 let wasMob = window.innerWidth < 600, resizeT;
