@@ -497,6 +497,7 @@ function openViewer(f){
   }
   root.innerHTML = `<div class="viewer" data-action="close-viewer">
     ${isImg ? `<img src="${esc(f.url)}" alt="${esc(f.name)}">` : `<div class="card" style="text-align:center"><h2>${esc(f.name)}</h2><p class="muted">Documento PDF</p></div>`}
+    ${isImg?'<p class="muted small" style="color:#cfd8e0;margin:0;text-align:center;max-width:420px">iPhone: tocca l’icona del testo in basso a destra sulla foto (o tieni premuto sul testo), scegli Seleziona tutto e Copia.</p>':''}
     <div class="bar"><a class="btn" href="${esc(linkHref)}" target="_blank" rel="noopener">Apri originale</a><button class="btn" data-action="close-viewer">Chiudi</button></div>
   </div>`;
 }
@@ -893,7 +894,9 @@ function recordForm(kind, r={}){
       ${kind!=='todo' ? `<div class="scan">
         <label class="f full"><span>Oppure incolla o scansiona il testo dello scontrino</span>
           <textarea id="scantext" rows="3" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="iPhone: tocca qui, poi “Scansiona testo”. Oppure incolla."></textarea></label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px"><button type="button" class="btn small" id="pastetext">Incolla e leggi</button><button type="button" class="btn small" id="cleartext">Svuota</button></div>
         <p class="hint" id="texthint">Il testo viene letto subito: compilo data, importo, litri e km.</p>
+        <p class="hint">Scontrino lungo? La fotocamera legge solo ciò che inquadra: scansiona a pezzi (ogni scansione si aggiunge in fondo). Oppure scatta la foto, aprila nell’app Foto, tocca l’icona del testo, scegli <b>Seleziona tutto</b> e <b>Copia</b>, poi qui <b>Incolla e leggi</b>.</p>
       </div>`:''}
       <p class="hint" id="atthint">${kind==='fuel' ? 'Appena allegata la foto leggo data, importo e litri dallo scontrino: controlla sempre i valori. La prima volta serve la connessione.' : (kind!=='todo' ? 'Appena allegata la foto leggo data, importo e n. fattura: la data letta diventa la data della registrazione. Controlla sempre i valori. La prima volta serve la connessione.' : 'Puoi allegare più pagine.')}</p>
     </div>
@@ -962,9 +965,26 @@ function recordForm(kind, r={}){
     const scanBox = $('#scantext',root);
     if(scanBox){
       let st;
-      const readText = () => { const t=scanBox.value.trim(), h=$('#texthint',root); if(t.length<8){ h.textContent='Il testo viene letto subito: compilo data, importo, litri e km.'; return; } applyOut(parseReceipt(t, kind==='fuel' ? 'fuel' : 'service'), true, h); };
+      const readText = () => {
+        const t=scanBox.value.trim(), h=$('#texthint',root);
+        if(t.length<8){ h.textContent='Il testo viene letto subito: compilo data, importo, litri e km.'; return; }
+        const out=parseReceipt(t, kind==='fuel' ? 'fuel' : 'service');
+        applyOut(out, true, h);
+        /* testo incompleto (scontrino lungo, scansione parziale): dico cosa manca e come completarlo */
+        const miss=[]; if(!out.date) miss.push('data'); if(!out.amount) miss.push('importo'); if(kind==='fuel' && !out.liters) miss.push('litri');
+        if(miss.length) h.textContent='Testo incompleto, mancano: '+miss.join(', ')+'. Scansiona anche il resto (si aggiunge in fondo) o usa “Incolla e leggi” con il testo copiato dalla foto.';
+      };
       scanBox.addEventListener('input', ()=>{ clearTimeout(st); st=setTimeout(readText,700); });
       scanBox.addEventListener('paste', ()=>{ clearTimeout(st); st=setTimeout(readText,50); });
+      /* ogni nuova scansione deve accodarsi in fondo, non sostituire né finire in mezzo */
+      scanBox.addEventListener('focus', ()=>{ if(scanBox.value && !/\n$/.test(scanBox.value)) scanBox.value+='\n'; setTimeout(()=>{ try{ scanBox.setSelectionRange(scanBox.value.length, scanBox.value.length); }catch(e){} },0); });
+      const pb=$('#pastetext',root), cb=$('#cleartext',root);
+      if(pb) pb.addEventListener('click', async ()=>{
+        const h=$('#texthint',root);
+        try{ const t = await navigator.clipboard.readText(); if(!t || !t.trim()){ h.textContent='Gli appunti sono vuoti: copia prima il testo dalla foto.'; return; } scanBox.value=t; readText(); }
+        catch(e){ scanBox.focus(); h.textContent='Il browser non permette l’incolla automatica: tieni premuto nel campo e scegli Incolla.'; }
+      });
+      if(cb) cb.addEventListener('click', ()=>{ scanBox.value=''; $('#texthint',root).textContent='Il testo viene letto subito: compilo data, importo, litri e km.'; });
     }
     const runOCR = async auto => {
       const imgFiles = files.filter(f=>(f.type||'').startsWith('image/')).slice(0,2);
@@ -1765,7 +1785,7 @@ $('#restorefile').addEventListener('change', e=>{ const f=e.target.files[0]; e.t
 document.addEventListener('click', async e=>{
   const t = e.target.closest('[data-action]'); if(!t) return;
   const a = t.dataset.action;
-  if(a==='close-viewer'){ if(e.target.closest('a')) return; closeViewer(); return; }
+  if(a==='close-viewer'){ if(e.target.closest('a') || e.target.tagName==='IMG') return; closeViewer(); return; }   /* un tocco sulla foto non la chiude: serve per selezionare il testo */
   if(a==='close-sheet'){ closeSheet(); return; }
   if(a==='reread'){ if(isAdmin()) await readPendingReceipts(pendingReads().map(r=>r.id)); return; }
   if(a==='autosave-setup'){ if(isAdmin()){ await Auto.setup(); if($('.sheet')) dataSheet(); } return; }
