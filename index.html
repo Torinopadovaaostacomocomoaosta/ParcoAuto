@@ -168,6 +168,8 @@ td small{ display:block; color:var(--muted); font-size:13px; }
 .row .title{ font-weight:500; margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .row .meta{ display:flex; flex-wrap:wrap; gap:2px 12px; font-size:13.5px; color:var(--muted); margin-top:2px; }
 .row .amt{ font-family:'Barlow Condensed',sans-serif; font-size:22px; font-weight:700; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.scan{ margin-top:12px; }
+.scan textarea{ min-height:74px; font-size:16px; }
 .row .thumb{ width:42px; height:42px; border-radius:6px; object-fit:cover; border:1px solid var(--line); flex:none; background:var(--soft); }
 .row .acts{ display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
 .row .pick{ width:22px; height:22px; flex:none; accent-color:var(--c, #0f5c5c); pointer-events:none; }
@@ -698,8 +700,9 @@ function rowHTML(r, withActions, selMode){
     ${selMode?`<input type="checkbox" class="pick" tabindex="-1" aria-hidden="true" ${on?'checked':''}>`:''}
     ${img?`<img class="thumb" src="${esc(img.url)}" alt="">`:''}
     <div class="main">
-      <div class="t1"><span class="kind">${KIND_LABEL[r.kind]}</span>${plateHTML(vLabel(r.vehicleId),true)}${q?`<span class="st ${q[1]}">${q[0]}</span>`:''}${(r.kind==='fuel' && r.needsRead && r.amount==null)?'<span class="st warn">Da leggere</span>':''}</div>
+      <div class="t1"><span class="kind">${KIND_LABEL[r.kind]}</span>${plateHTML(vLabel(r.vehicleId),true)}${q?`<span class="st ${q[1]}">${q[0]}</span>`:''}${(r.kind==='fuel' && r.needsRead && r.amount==null)?'<span class="st warn">Da leggere</span>':''}${r.verify?'<span class="st warn">Da verificare</span>':''}</div>
       <div class="title">${esc(title)}</div>
+      ${r.verify?`<div class="meta"><span>⚠ ${esc(r.verify)}</span></div>`:''}
       <div class="meta">${meta.join('')}</div>
       ${acts}
     </div>
@@ -709,7 +712,7 @@ function rowHTML(r, withActions, selMode){
 function filteredRegistro(){
   const q = ui.regQuery.trim().toLowerCase();
   return R().filter(r=>r.kind!=='todo')
-    .filter(r=>ui.regKind==='all' || r.kind===ui.regKind)
+    .filter(r=>ui.regKind==='all' || (ui.regKind==='verify' ? !!r.verify : r.kind===ui.regKind))
     .filter(r=>!ui.regVehicle || r.vehicleId===ui.regVehicle)
     .filter(r=>!q || [r.desc,r.supplier,r.category,r.invoiceNo,r.notes,r.by,vLabel(r.vehicleId)].join(' ').toLowerCase().includes(q))
     .sort((a,b)=>(b.date||'').localeCompare(a.date||'') || (b.createdAt||0)-(a.createdAt||0));
@@ -731,7 +734,7 @@ function registroListHTML(){
 function viewRegistro(app){
   const chip = (k,l)=>`<button class="chip" data-action="regkind" data-k="${k}" aria-pressed="${ui.regKind===k}">${l}</button>`;
   app.innerHTML = `
-    ${syncCardHTML()}<div class="chips">${chip('all','Tutto')}${chip('fuel','Rifornimenti')}${chip('service','Manutenzioni')}${chip('quote','Preventivi')}</div>
+    ${syncCardHTML()}<div class="chips">${chip('all','Tutto')}${chip('fuel','Rifornimenti')}${chip('service','Manutenzioni')}${chip('quote','Preventivi')}${R().some(r=>r.verify)?chip('verify',`Da verificare (${R().filter(r=>r.verify).length})`):''}</div>
     <div class="filters">
       <select data-change="regVehicle" aria-label="Veicolo"><option value="">${isAdmin()?'Tutti i veicoli':'La mia auto'}</option>${V().map(v=>`<option value="${v.id}" ${v.id===ui.regVehicle?'selected':''}>${esc(v.plate)}</option>`).join('')}</select>
       <input type="search" id="regq" placeholder="Cerca fornitore, descrizione, n. fattura" value="${esc(ui.regQuery)}" aria-label="Cerca">
@@ -874,6 +877,7 @@ function recordForm(kind, r={}){
     if(kind==='todo'){ body += dfld('Da fare entro il','dueDate', r.dueDate||''); body += fld('Oppure entro km','dueKm', r.dueKm||'', 'inputmode="numeric"'); }
   }
   body += `<label class="f full"><span>Note</span><textarea name="notes">${esc(r.notes||'')}</textarea></label>`;
+  if(r.verify) body += `<div class="f full notice" style="margin:0"><b>Da verificare</b><br>${esc(r.verify)}<br><label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-weight:600"><input type="checkbox" name="verified" style="width:auto"> Ho controllato i valori sullo scontrino: toglie il segno</label></div>`;
 
   const html = `<form id="rf" novalidate>
     <div class="att">
@@ -886,6 +890,11 @@ function recordForm(kind, r={}){
       <input type="file" id="f-cam" accept="image/*" capture="environment" multiple hidden>
       <input type="file" id="f-file" accept="image/*,application/pdf" multiple hidden>
       <div class="thumbs" id="thumbs"></div>
+      ${kind!=='todo' ? `<div class="scan">
+        <label class="f full"><span>Oppure incolla o scansiona il testo dello scontrino</span>
+          <textarea id="scantext" rows="3" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="iPhone: tocca qui, poi “Scansiona testo”. Oppure incolla."></textarea></label>
+        <p class="hint" id="texthint">Il testo viene letto subito: compilo data, importo, litri e km.</p>
+      </div>`:''}
       <p class="hint" id="atthint">${kind==='fuel' ? 'Appena allegata la foto leggo data, importo e litri dallo scontrino: controlla sempre i valori. La prima volta serve la connessione.' : (kind!=='todo' ? 'Appena allegata la foto leggo data, importo e n. fattura: la data letta diventa la data della registrazione. Controlla sempre i valori. La prima volta serve la connessione.' : 'Puoi allegare più pagine.')}</p>
     </div>
     <div class="fgrid">${body}</div>
@@ -937,6 +946,26 @@ function recordForm(kind, r={}){
       el.value = typeof v==='number' ? String(v).replace('.',',') : String(v);
       flash(el);
     };
+    /* riempie il modulo con i valori letti (da foto o da testo scansionato) */
+    const applyOut = (out, over, hint) => {
+      const found = out && (out.amount || out.liters || out.date || out.plate || out.invoiceNo);
+      if(!found){ hint.textContent='Non sono riuscito a leggere i dati: compila a mano.'; return false; }
+      setv('date',out.date);
+      setv('amount',out.amount,over); setv('liters',out.liters,over); setv('supplier',out.supplier,over); setv('invoiceNo',out.invoiceNo,over); setv('km',out.km,over);
+      if(out.fuel && FUELS.includes(out.fuel)) setv('fuel',out.fuel);
+      if(out.plate){ const pv=state.vehicles.find(x=>x.plate===normPlate(out.plate)); if(pv && (over || !form.elements.vehicleId.value)) form.elements.vehicleId.value=pv.id; }
+      updatePpl();
+      hint.textContent = (out.check&&out.check.length) ? 'Dati letti, ma controlla bene: '+out.check.join('; ')+'.' : 'Dati letti dalla ricevuta (data compresa): controllali prima di salvare.';
+      return true;
+    };
+    /* testo scansionato con la fotocamera dell'iPhone ("Scansiona testo") o incollato: stessa lettura, senza OCR e senza connessione */
+    const scanBox = $('#scantext',root);
+    if(scanBox){
+      let st;
+      const readText = () => { const t=scanBox.value.trim(), h=$('#texthint',root); if(t.length<8){ h.textContent='Il testo viene letto subito: compilo data, importo, litri e km.'; return; } applyOut(parseReceipt(t, kind==='fuel' ? 'fuel' : 'service'), true, h); };
+      scanBox.addEventListener('input', ()=>{ clearTimeout(st); st=setTimeout(readText,700); });
+      scanBox.addEventListener('paste', ()=>{ clearTimeout(st); st=setTimeout(readText,50); });
+    }
     const runOCR = async auto => {
       const imgFiles = files.filter(f=>(f.type||'').startsWith('image/')).slice(0,2);
       if(!imgFiles.length) return;
@@ -950,16 +979,7 @@ function recordForm(kind, r={}){
           texts.push(r.text);
           if(r.rot){ await turnFile(f,r.rot); renderThumbs(); }
         }
-        const out = parseReceipt(texts.join('\n'), kind==='fuel' ? 'fuel' : 'service');
-        const found = out && (out.amount || out.liters || out.date || out.plate || out.invoiceNo);
-        if(found){
-          const over = !auto;
-          setv('date',out.date);
-          setv('amount',out.amount,over); setv('liters',out.liters,over); setv('supplier',out.supplier,over); setv('invoiceNo',out.invoiceNo,over); setv('km',out.km,over);
-          if(out.fuel && FUELS.includes(out.fuel)) setv('fuel',out.fuel);
-          if(out.plate){ const pv=state.vehicles.find(x=>x.plate===normPlate(out.plate)); if(pv && (over || !form.elements.vehicleId.value)) form.elements.vehicleId.value=pv.id; }
-          updatePpl(); hint.textContent = out.date ? 'Dati letti dalla ricevuta (data compresa): controllali prima di salvare.' : 'Dati letti, ma la data dello scontrino non è leggibile: controlla la data prima di salvare.';
-        } else hint.textContent='Non sono riuscito a leggere i dati: compila a mano.';
+        applyOut(parseReceipt(texts.join('\n'), kind==='fuel' ? 'fuel' : 'service'), !auto, hint);
       }catch(e){
         hint.textContent=''; err.textContent='Lettura automatica non disponibile (serve la connessione): compila i campi a mano.';
       }
@@ -977,6 +997,7 @@ function recordForm(kind, r={}){
       const fd=Object.fromEntries(new FormData(form).entries());
       if(!fd.vehicleId){ err.textContent='Scegli il veicolo.'; return; }
       const rec = { id: r.id || uid(), kind, vehicleId: fd.vehicleId, notes:(fd.notes||'').trim(), files: files.map(fileKeep), createdAt: r.createdAt || Date.now() };
+      if(r.verify && !fd.verified) rec.verify = r.verify;   /* il segno resta finché non spunti "Ho controllato" */
       if(kind!=='todo'){ if(!fd.date){ err.textContent='Indica la data.'; return; } rec.date=fd.date; }
       if(kind==='fuel'){
         const a=parseNum(fd.amount);
@@ -1326,7 +1347,10 @@ function applyFuelRead(rec,out){
   if(/^\d{4}-\d{2}-\d{2}$/.test(out.date||'')) rec.date=out.date;
   if(out.supplier && !rec.supplier) rec.supplier=String(out.supplier);
   if(out.km && !rec.km){ const k=parseInt(out.km,10); if(k>0) rec.km=k; }
-  rec.needsRead=false; return true;
+  rec.needsRead=false;
+  /* lettura incerta: la segno "Da verificare" con il motivo, così non passa inosservata */
+  if(Array.isArray(out.check) && out.check.length) rec.verify='Lettura automatica incerta: '+out.check.join('; ')+'.'; else delete rec.verify;
+  return true;
 }
 function dataUrlToBlob(u){
   const [h,b]=u.split(','); const mime=(h.match(/:(.*?);/)||[])[1]||'application/octet-stream';
@@ -1436,7 +1460,7 @@ function parseReceipt(text, kind){
   const tokens = l => (l.match(/\d{1,3}(?:\.\d{3})+,\d{2,3}|\d+[.,:]\d{1,3}/g)||[]).map(x=>({ d:(x.match(/[.,:](\d+)$/)||[,''])[1].length, n:num(x) })).filter(x=>x.n!=null);
   /* sulle righe del totale ammetto anche "45 50" (virgola persa) e "45,5" (zero perso) */
   const totTokens = l => { let t=tokens(l); if(!t.length){ const m=l.match(/(\d{1,4})\s(\d{2})(?!\d)/); if(m) t=[{d:2,n:parseFloat(m[1]+'.'+m[2])}]; } return t.map(x=>x.d===1?{d:2,n:x.n}:x); };
-  const out = { date:null, amount:null, liters:null, fuel:null, supplier:null, km:null, plate:null, invoiceNo:null, desc:null };
+  const out = { date:null, amount:null, liters:null, fuel:null, supplier:null, km:null, plate:null, invoiceNo:null, desc:null, check:[] };
 
   const now=new Date(), ty=now.getFullYear(), todayISO=ty+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
   for(const m of all.matchAll(/(\d{2})[\/\-.](\d{2})[\/\-.](\d{4}|\d{2})(?!\d)/g)){
@@ -1478,6 +1502,7 @@ function parseReceipt(text, kind){
     if(lit==null) lines.forEach(l=>{ const m=l.match(/^[Ll1|I]\s+(\d{1,3}[.,]\d{2})\b/); if(lit==null && m){ const n=num(m[1]); if(n>=3 && n<=150 && n!==out.amount) lit=n; } });
     /* importo, litri e prezzo devono tornare tra loro: se non tornano correggo (o scarto) invece di salvare dati sbagliati */
     let a=out.amount, l=lit, p=price;
+    const a0=a, l0=l;
     /* se litri x prezzo coincide con un altro importo presente sullo scontrino (es. letto 63,01 invece di 69,01 su una riga), uso quello */
     const allAmt = lines.filter(x=>!noTot.test(x)).flatMap(x=>tokens(noDT(x)).filter(t=>t.d===2).map(t=>t.n));
     if(l && p){ const e=l*p, hit=allAmt.find(n=>Math.abs(n-e)<=0.05); if(hit && (!a || Math.abs(a-hit)>0.05)) a=hit; }
@@ -1495,7 +1520,22 @@ function parseReceipt(text, kind){
       else l=null;
     } else if(a && p && !l){ const e=a/p; l=okL(e)?r2(e):null; }
     else if(l && p && !a) a=r2(l*p);
+    /* tutti e tre letti ma non tornano: se uno solo differisce di una cifra da quello ricalcolato dagli altri due (es. 65,09 invece di 95,09) lo correggo */
+    if(a && l && p && Math.abs(a-l*p)>0.06){
+      const dig=(x,y)=>{ const sx=x.toFixed(2), sy=y.toFixed(2); return sx.length===sy.length ? [...sx].filter((ch,i)=>ch!==sy[i]).length : 9; };
+      const ca=r2(l*p), cl=r2(a/p);
+      if(dig(a,ca)===1) a=ca; else if(dig(l,cl)===1 && okL(cl)) l=cl;
+    }
     out.amount = a || null; out.liters = l || null;
+    /* quanto è affidabile la lettura? importo = litri x prezzo deve tornare al centesimo; altrimenti va controllata a mano */
+    const chk=[];
+    if(!a) chk.push('importo non letto');
+    if(!l) chk.push('litri non letti');
+    if(a && l && p){ if(Math.abs(a-l*p)>0.06) chk.push('importo, litri e prezzo al litro non tornano tra loro'); }
+    else if(a && l) chk.push('prezzo al litro non letto: non posso confrontare importo e litri');
+    if(a!==a0 || l!==l0) chk.push('un valore è stato corretto o ricalcolato dagli altri');
+    if(!out.date) chk.push('data non letta');
+    out.check = chk;
     if(/gasolio|diesel|2710\s?2011/i.test(all)) out.fuel='Diesel';
     else if(/benzina|benzin\b|senza\s*piombo|\bsp\s?9[58]\b|unleaded|bleifrei|eurosuper|super\s?(?:95|98|plus)/i.test(all)) out.fuel='Benzina';
     else if(/\bgpl\b/i.test(all)) out.fuel='GPL';
@@ -1532,22 +1572,35 @@ function loadTesseract(){
   return tessPromise;
 }
 /* Prepara la foto per l'OCR: la ruota di `rot` gradi e toglie ombre e sfondo grigio (dividendo per la luminosità locale). */
-function receiptCanvas(bm, rot, maxDim){
-  const bw=bm.width||bm.naturalWidth, bh=bm.height||bm.naturalHeight, s=Math.min(1,maxDim/Math.max(bw,bh));
+function receiptCanvas(bm, rot, maxDim, up){
+  const bw=bm.width||bm.naturalWidth, bh=bm.height||bm.naturalHeight, s=up ? maxDim/Math.max(bw,bh) : Math.min(1,maxDim/Math.max(bw,bh));
   const w0=Math.round(bw*s), h0=Math.round(bh*s), sw=(rot%180)?h0:w0, sh=(rot%180)?w0:h0;
   const c=document.createElement('canvas'); c.width=sw; c.height=sh; const x=c.getContext('2d');
   x.fillStyle='#fff'; x.fillRect(0,0,sw,sh); x.save(); x.translate(sw/2,sh/2); x.rotate(rot*Math.PI/180); x.drawImage(bm,-w0/2,-h0/2,w0,h0); x.restore();
   return c;
 }
 function flattenCanvas(c){
-  const sw=c.width, sh=c.height, x=c.getContext('2d'), f=24;
-  const sm=document.createElement('canvas'); sm.width=Math.max(1,Math.round(sw/f)); sm.height=Math.max(1,Math.round(sh/f));
-  sm.getContext('2d').drawImage(c,0,0,sm.width,sm.height);
-  const bg=document.createElement('canvas'); bg.width=sw; bg.height=sh; const bx=bg.getContext('2d'); bx.imageSmoothingQuality='high'; bx.drawImage(sm,0,0,sw,sh);
-  const d=x.getImageData(0,0,sw,sh), b=bx.getImageData(0,0,sw,sh).data, p=d.data;
-  for(let i=0;i<p.length;i+=4){
-    const g=.299*p[i]+.587*p[i+1]+.114*p[i+2], bv=Math.max(40,.299*b[i]+.587*b[i+1]+.114*b[i+2]);
-    let v=(g/bv*255-110)*1.6+150; v=v<0?0:v>255?255:v; p[i]=p[i+1]=p[i+2]=v;
+  /* sfondo = luminosità massima locale (la carta, anche in ombra): dividendo per essa le ombre spariscono e il testo resta nero su bianco */
+  const sw=c.width, sh=c.height, x=c.getContext('2d'), f=18, d=x.getImageData(0,0,sw,sh), p=d.data, g=new Float32Array(sw*sh);
+  for(let i=0,j=0;i<p.length;i+=4,j++) g[j]=.299*p[i]+.587*p[i+1]+.114*p[i+2];
+  const gw=Math.ceil(sw/f), gh=Math.ceil(sh/f), grid=new Float32Array(gw*gh), g2=new Float32Array(gw*gh);
+  for(let by=0;by<gh;by++) for(let bx=0;bx<gw;bx++){
+    let m=0; const y1=Math.min(sh,(by+1)*f), x1=Math.min(sw,(bx+1)*f);
+    for(let y=by*f;y<y1;y++) for(let xx=bx*f;xx<x1;xx++){ const v=g[y*sw+xx]; if(v>m) m=v; }
+    grid[by*gw+bx]=m;
+  }
+  for(let by=0;by<gh;by++) for(let bx=0;bx<gw;bx++){
+    let m=0; for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){ const yy=by+dy, xx=bx+dx; if(yy<0||xx<0||yy>=gh||xx>=gw) continue; const v=grid[yy*gw+xx]; if(v>m) m=v; }
+    g2[by*gw+bx]=Math.max(m,40);
+  }
+  for(let y=0;y<sh;y++){
+    const fy=Math.min(gh-1,Math.max(0,y/f-.5)), y0=Math.floor(fy), y1=Math.min(gh-1,y0+1), ty=fy-y0;
+    for(let xx=0;xx<sw;xx++){
+      const fx=Math.min(gw-1,Math.max(0,xx/f-.5)), x0=Math.floor(fx), x1=Math.min(gw-1,x0+1), tx=fx-x0;
+      const bv=(g2[y0*gw+x0]*(1-tx)+g2[y0*gw+x1]*tx)*(1-ty)+(g2[y1*gw+x0]*(1-tx)+g2[y1*gw+x1]*tx)*ty;
+      let v=g[y*sw+xx]/bv; v=(v-.55)*3.2*255+127.5+60; v=v<0?0:v>255?255:v;
+      const k=(y*sw+xx)*4; p[k]=p[k+1]=p[k+2]=v;
+    }
   }
   x.putImageData(d,0,0); return c;
 }
@@ -1562,10 +1615,10 @@ async function ocrReceipt(blob, onProgress){
   try{
     const bm = await loadBitmap(blob); let best=null;
     for(const rot of [0,90,270,180]){
-      const r = await worker.recognize(await canvasBlob(flattenCanvas(receiptCanvas(bm,rot,2000)),'image/png'));
+      const r = await worker.recognize(await canvasBlob(flattenCanvas(receiptCanvas(bm,rot,2000,true)),'image/png'));
       const text=(r && r.data && r.data.text) || '', sc=ocrScore(text);
-      if(!best || sc>best.sc) best={rot,sc,text};
-      if(sc>=6) break;
+      if(!best || sc>best.sc+2) best={rot,sc,text};   /* ruoto solo se il testo migliora nettamente */
+      if((rot===0 && sc>=5) || sc>=6) break;
     }
     return best;
   } finally { try{ await worker.terminate(); }catch(e){} }
